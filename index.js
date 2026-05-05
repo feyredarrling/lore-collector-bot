@@ -21,6 +21,11 @@ const DAILY_INK_REWARD = 20;
 const STANDARD_PACK_COST = 100;
 const PREMIUM_PACK_COST = 250;
 
+// Add Rachel's channel ID later
+const ALLOWED_CHANNELS = [
+  '1501215673139990710'
+].filter(id => !id.includes('PASTE'));
+
 const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
 
 const supabase = createClient(
@@ -35,33 +40,13 @@ const client = new Client({
 const pendingPacks = new Map();
 
 const commands = [
-  new SlashCommandBuilder()
-    .setName('daily')
-    .setDescription('Claim your daily card and Ink for this server'),
-
-  new SlashCommandBuilder()
-    .setName('balance')
-    .setDescription('Check your Ink balance'),
-
-  new SlashCommandBuilder()
-    .setName('collection')
-    .setDescription('View your Lorcana collection binder'),
-
-  new SlashCommandBuilder()
-    .setName('dupes')
-    .setDescription('View your duplicate Lorcana cards'),
-
-  new SlashCommandBuilder()
-    .setName('leaderboard')
-    .setDescription('View top collectors and richest players'),
-
-  new SlashCommandBuilder()
-    .setName('pack')
-    .setDescription('Choose and open a Lorcana card pack'),
-
-  new SlashCommandBuilder()
-    .setName('help')
-    .setDescription('Learn how to use The Lore Collector')
+  new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink for this server'),
+  new SlashCommandBuilder().setName('balance').setDescription('Check your Ink balance'),
+  new SlashCommandBuilder().setName('collection').setDescription('View your Lorcana collection binder'),
+  new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
+  new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
+  new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
+  new SlashCommandBuilder().setName('help').setDescription('Learn how to use The Lore Collector')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -69,12 +54,9 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-  Routes.applicationGuildCommands(
-    process.env.DISCORD_CLIENT_ID,
-    process.env.DISCORD_GUILD_ID
-  ),
-  { body: commands }
-);
+      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+      { body: commands }
+    );
 
     console.log('Global commands registered');
   } catch (error) {
@@ -232,7 +214,6 @@ async function hasAnyDailyClaim(userId) {
     .limit(1);
 
   if (error) throw error;
-
   return data && data.length > 0;
 }
 
@@ -245,7 +226,6 @@ async function getDailyClaim(userId, guildId) {
     .maybeSingle();
 
   if (error) throw error;
-
   return data;
 }
 
@@ -271,7 +251,6 @@ async function isNewCard(userId, cardId) {
     .maybeSingle();
 
   if (error) throw error;
-
   return !data;
 }
 
@@ -291,7 +270,6 @@ async function addInk(userId, username, amount) {
     .eq('discord_user_id', userId);
 
   if (error) throw error;
-
   return newBalance;
 }
 
@@ -300,10 +278,7 @@ async function spendInk(userId, amount) {
   const currentBalance = user?.ink_balance || 0;
 
   if (currentBalance < amount) {
-    return {
-      success: false,
-      balance: currentBalance
-    };
+    return { success: false, balance: currentBalance };
   }
 
   const newBalance = currentBalance - amount;
@@ -315,10 +290,7 @@ async function spendInk(userId, amount) {
 
   if (error) throw error;
 
-  return {
-    success: true,
-    balance: newBalance
-  };
+  return { success: true, balance: newBalance };
 }
 
 async function addCardToCollection(userId, username, cardId) {
@@ -411,10 +383,10 @@ function createSvgText(text, width, height, fontSize = 36) {
 }
 
 async function createCollectionImage(username, collectionDetails) {
-  const cardWidth = 220;
-  const cardHeight = 308;
-  const gap = 24;
-  const columns = 4;
+  const cardWidth = 200;
+  const cardHeight = 280;
+  const gap = 16;
+  const columns = 5;
   const headerHeight = 140;
   const footerHeight = 60;
   const padding = 32;
@@ -482,7 +454,7 @@ async function createCollectionImage(username, collectionDetails) {
         <svg width="${cardWidth}" height="38">
           <text x="50%" y="24" text-anchor="middle"
             font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">
-            ${escapeSvgText(`${rarityEmoji[card.rarity] || '🎴'} ${card.rarity}`)}
+            ${escapeSvgText(card.rarity)}
           </text>
         </svg>
       `);
@@ -599,21 +571,17 @@ async function handlePackChoice(interaction, packType, ownerId) {
 }
 
 client.on('interactionCreate', async interaction => {
-const ALLOWED_CHANNELS = [
-  '1501215673139990710'
-];
-
-// Block commands outside allowed channels
-if (interaction.isChatInputCommand()) {
-  if (!ALLOWED_CHANNELS.includes(interaction.channelId)) {
-    await interaction.reply({
-      content: 'Please use commands in #lore-collector 🎴',
-      ephemeral: true
-    });
-    return;
-  }
-}
   try {
+    if (ALLOWED_CHANNELS.length > 0 && !ALLOWED_CHANNELS.includes(interaction.channelId)) {
+      if (interaction.isChatInputCommand()) {
+        await interaction.reply({
+          content: 'Please use commands in the Lore Collector channel 🎴',
+          ephemeral: true
+        });
+      }
+      return;
+    }
+
     if (interaction.isButton()) {
       if (interaction.customId.startsWith('choose_pack_standard_')) {
         const ownerId = interaction.customId.replace('choose_pack_standard_', '');
@@ -686,9 +654,7 @@ if (interaction.isChatInputCommand()) {
 
         const rarestCard = [...packData.items]
           .map(item => item.card)
-          .sort((a, b) => {
-            return (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
-          })[0];
+          .sort((a, b) => (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0))[0];
 
         if (rarestCard.rarity === 'Enchanted') {
           await interaction.followUp('🚨 EVERYONE LOOK 🚨 ENCHANTED PULL IN CHAT 🚨');
@@ -885,18 +851,14 @@ if (interaction.isChatInputCommand()) {
             ink: cardInfo.ink || 'Unknown',
             set: cardInfo.set || 'Unknown',
             image: cardInfo.image,
-            quantity: ownedCard.quantity,
-            lastPulledAt: ownedCard.last_pulled_at
+            quantity: ownedCard.quantity
           };
         })
         .filter(Boolean);
 
       collectionDetails.sort((a, b) => {
-        const rarityDiff =
-          (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
-
+        const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
         if (rarityDiff !== 0) return rarityDiff;
-
         return a.name.localeCompare(b.name);
       });
 
@@ -909,14 +871,9 @@ if (interaction.isChatInputCommand()) {
         name: 'collection-binder.png'
       });
 
-      const embed = new EmbedBuilder()
-  	.setTitle(`${interaction.user.username}'s Lorcana Binder 🎴`)
- 	 .setImage('attachment://collection-binder.png')
-  	.setColor(0x00AE86);
-
-	await interaction.editReply({
-  	embeds: [embed],
-  	files: [attachment]
+      await interaction.editReply({
+        content: `Here is your Lorcana binder, ${interaction.user.username} 🎴`,
+        files: [attachment]
       });
     }
 
@@ -960,11 +917,8 @@ if (interaction.isChatInputCommand()) {
       }
 
       duplicateDetails.sort((a, b) => {
-        const rarityDiff =
-          (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
-
+        const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
         if (rarityDiff !== 0) return rarityDiff;
-
         return b.quantity - a.quantity;
       });
 
@@ -983,13 +937,7 @@ if (interaction.isChatInputCommand()) {
         .setDescription(
           `Extra cards available: **${totalDupes}**\nDuplicate types: **${duplicateDetails.length}**\n\n${dupeList}`
         )
-        .setColor(0x00AE86)
-        .setFooter({
-          text:
-            duplicateDetails.length > 25
-              ? 'Showing top 25 duplicates sorted by rarity.'
-              : 'Sorted by rarity first.'
-        });
+        .setColor(0x00AE86);
 
       await interaction.editReply({ embeds: [embed] });
     }
