@@ -56,9 +56,12 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
-      { body: commands }
-    );
+  Routes.applicationGuildCommands(
+    process.env.DISCORD_CLIENT_ID,
+    process.env.DISCORD_GUILD_ID
+  ),
+  { body: commands }
+);
 
     console.log('Global commands registered');
   } catch (error) {
