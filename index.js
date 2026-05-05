@@ -17,8 +17,9 @@ const {
 
 const { createClient } = require('@supabase/supabase-js');
 
-const DAILY_INK_REWARD = 75;
-const PACK_COST = 100;
+const DAILY_INK_REWARD = 20;
+const STANDARD_PACK_COST = 100;
+const PREMIUM_PACK_COST = 250;
 
 const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
 
@@ -34,12 +35,39 @@ const client = new Client({
 const pendingPacks = new Map();
 
 const commands = [
-  new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink'),
-  new SlashCommandBuilder().setName('balance').setDescription('Check your Ink balance'),
-  new SlashCommandBuilder().setName('collection').setDescription('View your Lorcana collection binder'),
-  new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
-  new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
-  new SlashCommandBuilder().setName('pack').setDescription(`Open a Lorcana card pack for ${PACK_COST} Ink`)
+  new SlashCommandBuilder()
+    .setName('daily')
+    .setDescription('Claim your daily card and Ink for this server'),
+
+  new SlashCommandBuilder()
+    .setName('balance')
+    .setDescription('Check your Ink balance'),
+
+  new SlashCommandBuilder()
+    .setName('collection')
+    .setDescription('View your Lorcana collection binder'),
+
+  new SlashCommandBuilder()
+    .setName('dupes')
+    .setDescription('View your duplicate Lorcana cards'),
+
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('View top collectors and richest players'),
+
+  new SlashCommandBuilder()
+    .setName('pack')
+    .setDescription('Open a Lorcana card pack')
+    .addStringOption(option =>
+      option
+        .setName('type')
+        .setDescription('Choose pack type')
+        .setRequired(false)
+        .addChoices(
+          { name: `Standard Pack - ${STANDARD_PACK_COST} Ink`, value: 'standard' },
+          { name: `Premium Pack - ${PREMIUM_PACK_COST} Ink`, value: 'premium' }
+        )
+    )
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -47,14 +75,11 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.DISCORD_CLIENT_ID,
-        process.env.DISCORD_GUILD_ID
-      ),
+      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
       { body: commands }
     );
 
-    console.log('Commands registered');
+    console.log('Global commands registered');
   } catch (error) {
     console.error('Error registering commands:', error);
   }
@@ -97,7 +122,7 @@ function getRandomCardByRarity(rarity) {
   return pool.length ? getRandomCardFromPool(pool) : getRandomCardFromPool(cards);
 }
 
-function getRareOrBetterCard() {
+function getStandardRareOrBetterCard() {
   const roll = Math.random();
 
   if (roll < 0.01) return getRandomCardByRarity('Enchanted');
@@ -107,21 +132,36 @@ function getRareOrBetterCard() {
   return getRandomCardByRarity('Rare');
 }
 
-function createPack() {
-  const pack = [
+function getPremiumRareOrBetterCard() {
+  const roll = Math.random();
+
+  if (roll < 0.05) return getRandomCardByRarity('Enchanted');
+  if (roll < 0.15) return getRandomCardByRarity('Legendary');
+  if (roll < 0.35) return getRandomCardByRarity('Super Rare');
+
+  return getRandomCardByRarity('Rare');
+}
+
+function createStandardPack() {
+  return [
     getRandomCardByRarity('Common'),
     getRandomCardByRarity('Common'),
     getRandomCardByRarity('Common'),
     getRandomCardByRarity('Uncommon'),
     getRandomCardByRarity('Uncommon'),
-    getRareOrBetterCard()
+    getStandardRareOrBetterCard()
   ];
+}
 
-  if (Math.random() < 0.10) {
-    pack.push(getRareOrBetterCard());
-  }
-
-  return pack;
+function createPremiumPack() {
+  return [
+    getRandomCardByRarity('Common'),
+    getRandomCardByRarity('Uncommon'),
+    getRandomCardByRarity('Uncommon'),
+    getPremiumRareOrBetterCard(),
+    getPremiumRareOrBetterCard(),
+    getPremiumRareOrBetterCard()
+  ];
 }
 
 function getPullMessage(card, isNew = false) {
@@ -153,17 +193,12 @@ function createPackSummary(packItems) {
     .join('\n');
 }
 
-async function ensureUser(userId, username, lastDailyClaim = null) {
-  const payload = {
+async function ensureUser(userId, username) {
+  const { error } = await supabase.from('users').upsert({
     discord_user_id: userId,
     username
-  };
+  });
 
-  if (lastDailyClaim) {
-    payload.last_daily_claim = lastDailyClaim;
-  }
-
-  const { error } = await supabase.from('users').upsert(payload);
   if (error) throw error;
 }
 
@@ -175,8 +210,45 @@ async function getUser(userId) {
     .maybeSingle();
 
   if (error) throw error;
+  return data;
+}
+
+async function hasAnyDailyClaim(userId) {
+  const { data, error } = await supabase
+    .from('daily_claims')
+    .select('discord_user_id')
+    .eq('discord_user_id', userId)
+    .limit(1);
+
+  if (error) throw error;
+
+  return data && data.length > 0;
+}
+
+async function getDailyClaim(userId, guildId) {
+  const { data, error } = await supabase
+    .from('daily_claims')
+    .select('*')
+    .eq('discord_user_id', userId)
+    .eq('guild_id', guildId)
+    .maybeSingle();
+
+  if (error) throw error;
 
   return data;
+}
+
+async function setDailyClaim(userId, guildId, today) {
+  const { error } = await supabase
+    .from('daily_claims')
+    .upsert({
+      discord_user_id: userId,
+      guild_id: guildId,
+      last_daily_claim: today,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) throw error;
 }
 
 async function isNewCard(userId, cardId) {
@@ -192,10 +264,8 @@ async function isNewCard(userId, cardId) {
   return !data;
 }
 
-async function addInk(userId, username, amount, updateDailyClaim = false) {
-  const today = new Date().toISOString().slice(0, 10);
-
-  await ensureUser(userId, username, updateDailyClaim ? today : null);
+async function addInk(userId, username, amount) {
+  await ensureUser(userId, username);
 
   const user = await getUser(userId);
   const currentBalance = user?.ink_balance || 0;
@@ -205,8 +275,7 @@ async function addInk(userId, username, amount, updateDailyClaim = false) {
     .from('users')
     .update({
       ink_balance: newBalance,
-      username,
-      ...(updateDailyClaim ? { last_daily_claim: today } : {})
+      username
     })
     .eq('discord_user_id', userId);
 
@@ -277,7 +346,6 @@ async function addCardToCollection(userId, username, cardId) {
 
 async function buildPackItems(userId, pulledCards) {
   const seenInThisPack = new Set();
-
   const packItems = [];
 
   for (const card of pulledCards) {
@@ -448,6 +516,25 @@ function formatLeaderboardList(data, label) {
     .join('\n');
 }
 
+async function startPackReveal(interaction, userId, username, packItems, packLabel, introText) {
+  await addPackItemsToCollection(userId, username, packItems);
+
+  pendingPacks.set(userId, {
+    items: packItems,
+    index: 0
+  });
+
+  const embed = new EmbedBuilder()
+    .setTitle(`${username} opened a ${packLabel} 🎴`)
+    .setDescription(introText)
+    .setColor(0x00AE86);
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [createRevealButton(userId)]
+  });
+}
+
 client.on('interactionCreate', async interaction => {
   try {
     if (interaction.isButton()) {
@@ -540,29 +627,63 @@ client.on('interactionCreate', async interaction => {
 
       const userId = interaction.user.id;
       const username = interaction.user.username;
+      const guildId = interaction.guildId;
       const today = new Date().toISOString().slice(0, 10);
 
       await ensureUser(userId, username);
 
-      const user = await getUser(userId);
+      const existingClaim = await getDailyClaim(userId, guildId);
 
-      if (user?.last_daily_claim === today) {
+      if (existingClaim?.last_daily_claim === today) {
         await interaction.editReply(
-          'You already claimed your daily reward today. Come back tomorrow 🎴'
+          'You already claimed your daily reward in this server today. Check in again tomorrow 🎴'
         );
         return;
       }
 
+      const isFirstEverClaim = !(await hasAnyDailyClaim(userId));
+
       const randomCard = getRandomCardFromPool(cards);
-      const isNew = await isNewCard(userId, randomCard.id);
+      const dailyCardIsNew = await isNewCard(userId, randomCard.id);
 
       await addCardToCollection(userId, username, randomCard.id);
-      const newBalance = await addInk(userId, username, DAILY_INK_REWARD, true);
+      const newBalance = await addInk(userId, username, DAILY_INK_REWARD);
+      await setDailyClaim(userId, guildId, today);
+
+      if (isFirstEverClaim) {
+        const premiumCards = createPremiumPack();
+        const premiumItems = await buildPackItems(userId, premiumCards);
+
+        await addPackItemsToCollection(userId, username, premiumItems);
+
+        pendingPacks.set(userId, {
+          items: premiumItems,
+          index: 0
+        });
+
+        const embed = new EmbedBuilder()
+          .setTitle(`${rarityEmoji[randomCard.rarity] || '🎴'} ${randomCard.name}`)
+          .setDescription(
+            `${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, dailyCardIsNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**\n\n🎁 **First check-in bonus:** You also received a free **Premium Pack**!\nClick the button below to reveal it.`
+          )
+          .setColor(0x00AE86);
+
+        if (randomCard.image) {
+          embed.setImage(randomCard.image);
+        }
+
+        await interaction.editReply({
+          embeds: [embed],
+          components: [createRevealButton(userId, false, 'Reveal Free Premium Pack')]
+        });
+
+        return;
+      }
 
       const embed = new EmbedBuilder()
         .setTitle(`${rarityEmoji[randomCard.rarity] || '🎴'} ${randomCard.name}`)
         .setDescription(
-          `${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, isNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**`
+          `${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, dailyCardIsNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**`
         )
         .setColor(0x00AE86);
 
@@ -592,39 +713,34 @@ client.on('interactionCreate', async interaction => {
 
       const userId = interaction.user.id;
       const username = interaction.user.username;
+      const packType = interaction.options.getString('type') || 'standard';
 
       await ensureUser(userId, username);
 
-      const spendResult = await spendInk(userId, PACK_COST);
+      const isPremium = packType === 'premium';
+      const cost = isPremium ? PREMIUM_PACK_COST : STANDARD_PACK_COST;
+      const packLabel = isPremium ? 'Premium Pack' : 'Standard Pack';
+
+      const spendResult = await spendInk(userId, cost);
 
       if (!spendResult.success) {
         await interaction.editReply(
-          `You need **${PACK_COST} Ink** to open a pack. You currently have **${spendResult.balance} Ink**. Use /daily to earn more.`
+          `You need **${cost} Ink** to open a ${packLabel}. You currently have **${spendResult.balance} Ink**. Use /daily to earn more.`
         );
         return;
       }
 
-      const pulledCards = createPack();
+      const pulledCards = isPremium ? createPremiumPack() : createStandardPack();
       const packItems = await buildPackItems(userId, pulledCards);
 
-      await addPackItemsToCollection(userId, username, packItems);
-
-      pendingPacks.set(userId, {
-        items: packItems,
-        index: 0
-      });
-
-      const embed = new EmbedBuilder()
-        .setTitle(`${interaction.user.username} opened a sealed pack 🎴`)
-        .setDescription(
-          `Spent **${PACK_COST} Ink**.\nRemaining balance: **${spendResult.balance} Ink**.\n\nYour pack has **${packItems.length} cards**.\nClick the button below to reveal them one at a time.`
-        )
-        .setColor(0x00AE86);
-
-      await interaction.editReply({
-        embeds: [embed],
-        components: [createRevealButton(userId)]
-      });
+      await startPackReveal(
+        interaction,
+        userId,
+        username,
+        packItems,
+        packLabel,
+        `Spent **${cost} Ink**.\nRemaining balance: **${spendResult.balance} Ink**.\n\nYour ${packLabel} has **${packItems.length} cards**.\nClick the button below to reveal them one at a time.`
+      );
     }
 
     if (interaction.commandName === 'collection') {
