@@ -58,10 +58,10 @@ const commands = [
   new SlashCommandBuilder()
     .setName('pack')
     .setDescription('Choose and open a Lorcana card pack'),
-  
+
   new SlashCommandBuilder()
-  .setName('help')
-  .setDescription('Learn how to use The Lore Collector'),
+    .setName('help')
+    .setDescription('Learn how to use The Lore Collector')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -694,6 +694,35 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
+    if (interaction.commandName === 'help') {
+      await interaction.deferReply({ ephemeral: true });
+
+      const embed = new EmbedBuilder()
+        .setTitle('📖 The Lore Collector Guide')
+        .setDescription(
+          `Welcome to your community Lorcana collection game 🎴\n\n` +
+          `**Daily Reward**\n` +
+          `/daily → Get 1 free card + ${DAILY_INK_REWARD} Ink\n` +
+          `You can claim once per server each day.\n\n` +
+          `**Ink**\n` +
+          `/balance → Check your Ink\n` +
+          `Use Ink to open packs.\n\n` +
+          `**Packs**\n` +
+          `/pack → Choose a pack with buttons\n` +
+          `• Standard Pack — ${STANDARD_PACK_COST} Ink\n` +
+          `• Premium Pack — ${PREMIUM_PACK_COST} Ink, better odds\n\n` +
+          `**Collection**\n` +
+          `/collection → View your visual binder\n` +
+          `/dupes → See duplicate cards\n\n` +
+          `**Leaderboard**\n` +
+          `/leaderboard → See top collectors and richest players\n\n` +
+          `🎁 First-ever /daily claim gives a free Premium Pack.`
+        )
+        .setColor(0x00AE86);
+
+      await interaction.editReply({ embeds: [embed] });
+    }
+
     if (interaction.commandName === 'daily') {
       await interaction.deferReply();
 
@@ -794,7 +823,11 @@ client.on('interactionCreate', async interaction => {
       const embed = new EmbedBuilder()
         .setTitle('Choose your pack 🎴')
         .setDescription(
-          `Current balance: **${balance} Ink**\n\n**Standard Pack** — ${STANDARD_PACK_COST} Ink\n3 Common, 2 Uncommon, 1 Rare+\n\n**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
+          `Current balance: **${balance} Ink**\n\n` +
+          `**Standard Pack** — ${STANDARD_PACK_COST} Ink\n` +
+          `3 Common, 2 Uncommon, 1 Rare+\n\n` +
+          `**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n` +
+          `1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
         )
         .setColor(0x00AE86);
 
@@ -984,38 +1017,6 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply({ embeds: [embed] });
     }
-    if (interaction.commandName === 'help') {
-  await interaction.deferReply({ ephemeral: true });
-
-  const embed = new EmbedBuilder()
-    .setTitle('📖 The Lore Collector Guide')
-    .setDescription(
-      `Welcome to your Lorcana collection journey 🎴\n\n` +
-
-      `**🧪 Daily Loop**\n` +
-      `/daily → Get a free card + Ink (once per server per day)\n\n` +
-
-      `**💰 Ink**\n` +
-      `Use Ink to open packs\nCheck balance with /balance\n\n` +
-
-      `**🎴 Packs**\n` +
-      `/pack → Choose your pack\n` +
-      `• Standard Pack (100 Ink)\n` +
-      `• Premium Pack (250 Ink, better odds)\n\n` +
-
-      `**📚 Collection**\n` +
-      `/collection → View your binder\n` +
-      `/dupes → See extra cards\n\n` +
-
-      `**🏆 Competition**\n` +
-      `/leaderboard → Top collectors & richest players\n\n` +
-
-      `💡 Tip: Check in both servers daily to earn more Ink!`
-    )
-    .setColor(0x00AE86);
-
-  await interaction.editReply({ embeds: [embed] });
-}
   } catch (error) {
     console.error(error);
 
