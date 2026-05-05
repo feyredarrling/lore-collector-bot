@@ -387,7 +387,7 @@ async function createCollectionImage(username, collectionDetails) {
   const cardHeight = 280;
   const gap = 16;
   const columns = 5;
-  const headerHeight = 140;
+  const headerHeight = 32;
   const footerHeight = 60;
   const padding = 32;
 
@@ -412,21 +412,7 @@ async function createCollectionImage(username, collectionDetails) {
   const totalCards = collectionDetails.reduce((sum, card) => sum + card.quantity, 0);
   const uniqueCards = collectionDetails.length;
 
-  composites.push({
-    input: Buffer.from(`
-      <svg width="${imageWidth}" height="${headerHeight}">
-        <text x="32" y="54" font-family="Arial, sans-serif" font-size="42" font-weight="800" fill="#ffffff">
-          ${escapeSvgText(username)}'s Lorcana Binder
-        </text>
-        <text x="34" y="98" font-family="Arial, sans-serif" font-size="24" fill="#d9f7f2">
-          Total Cards: ${totalCards} • Unique Cards: ${uniqueCards} • Showing ${displayCards.length}
-        </text>
-      </svg>
-    `),
-    top: 0,
-    left: 0
-  });
-
+ 
   for (let i = 0; i < displayCards.length; i++) {
     const card = displayCards[i];
     const row = Math.floor(i / columns);
@@ -450,21 +436,7 @@ async function createCollectionImage(username, collectionDetails) {
         left: left + cardWidth - 68
       });
 
-     // const rarityLabel = Buffer.from(`
-     //   <svg width="${cardWidth}" height="38">
-     //     <text x="50%" y="24" text-anchor="middle"
-     //       font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">
-     //       ${escapeSvgText(card.rarity)}
-     //     </text>
-     //   </svg>
-    //  `);
-
-    //  composites.push({
-    //    input: rarityLabel,
-    //    top: top + cardHeight + 8,
-    //    left
-   //   });
-    } catch (error) {
+      } catch (error) {
       console.error(`Failed to render card image for ${card.name}:`, error.message);
     }
   }
@@ -872,7 +844,7 @@ client.on('interactionCreate', async interaction => {
       });
 
       await interaction.editReply({
-        content: `Here is your Lorcana binder, ${interaction.user.username} 🎴`,
+         content: `Here is your Lorcana binder, ${interaction.user.username} 🎴\nTotal Cards: ${collectionDetails.reduce((sum, card) => sum + card.quantity, 0)} • Unique Cards: ${collectionDetails.length}`,
         files: [attachment]
       });
     }
