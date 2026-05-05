@@ -411,15 +411,15 @@ function createSvgText(text, width, height, fontSize = 36) {
 }
 
 async function createCollectionImage(username, collectionDetails) {
-  const cardWidth = 160;
-  const cardHeight = 224;
+  const cardWidth = 220;
+  const cardHeight = 308;
   const gap = 24;
   const columns = 4;
   const headerHeight = 140;
   const footerHeight = 60;
   const padding = 32;
 
-  const displayCards = collectionDetails.slice(0, 40);
+  const displayCards = collectionDetails.slice(0, 20);
   const rows = Math.max(1, Math.ceil(displayCards.length / columns));
 
   const imageWidth = padding * 2 + columns * cardWidth + (columns - 1) * gap;
