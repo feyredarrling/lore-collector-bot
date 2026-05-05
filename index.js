@@ -450,20 +450,20 @@ async function createCollectionImage(username, collectionDetails) {
         left: left + cardWidth - 68
       });
 
-      const rarityLabel = Buffer.from(`
-        <svg width="${cardWidth}" height="38">
-          <text x="50%" y="24" text-anchor="middle"
-            font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">
-            ${escapeSvgText(card.rarity)}
-          </text>
-        </svg>
-      `);
+     // const rarityLabel = Buffer.from(`
+     //   <svg width="${cardWidth}" height="38">
+     //     <text x="50%" y="24" text-anchor="middle"
+     //       font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#ffffff">
+     //       ${escapeSvgText(card.rarity)}
+     //     </text>
+     //   </svg>
+    //  `);
 
-      composites.push({
-        input: rarityLabel,
-        top: top + cardHeight + 8,
-        left
-      });
+    //  composites.push({
+    //    input: rarityLabel,
+    //    top: top + cardHeight + 8,
+    //    left
+   //   });
     } catch (error) {
       console.error(`Failed to render card image for ${card.name}:`, error.message);
     }
