@@ -548,8 +548,6 @@ async function handlePackChoice(interaction, packType, ownerId) {
     return;
   }
 
-  await interaction.deferUpdate();
-
   const userId = interaction.user.id;
   const username = interaction.user.username;
 
@@ -562,19 +560,23 @@ async function handlePackChoice(interaction, packType, ownerId) {
   const spendResult = await spendInk(userId, cost);
 
   if (!spendResult.success) {
-    await interaction.editReply({
+    await interaction.reply({
+      ephemeral: true,
       embeds: [
         new EmbedBuilder()
-          .setTitle('Not enough Ink')
+          .setTitle('❌ Not enough Ink')
           .setDescription(
-            `You need **${cost} Ink** to open a ${packLabel}.\nYou currently have **${spendResult.balance} Ink**.\n\nUse /daily to earn more.`
+            `You need **${cost} Ink** to open a ${packLabel}.\n` +
+            `You currently have **${spendResult.balance} Ink**.\n\n` +
+            `Use /daily to earn more.`
           )
-          .setColor(0x00AE86)
-      ],
-      components: [createPackChoiceButtons(userId)]
+          .setColor(0xff4d4d)
+      ]
     });
     return;
   }
+
+  await interaction.deferUpdate();
 
   const pulledCards = isPremium ? createPremiumPack() : createStandardPack();
   const packItems = await buildPackItems(userId, pulledCards);
