@@ -48,7 +48,7 @@ const commands = [
   new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
-  new SlashCommandBuilder().setName('help').setDescription('Learn how to use The Lore Collector')
+  new SlashCommandBuilder().setName('lore').setDescription('Learn how to use The Lore Collector')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -734,7 +734,7 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
-    if (interaction.commandName === 'help') {
+    if (interaction.commandName === 'lore') {
       await interaction.deferReply({ ephemeral: true });
 
       const embed = new EmbedBuilder()
