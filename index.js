@@ -414,7 +414,7 @@ async function createCollectionImage(username, collectionDetails) {
   const cardWidth = 160;
   const cardHeight = 224;
   const gap = 24;
-  const columns = 5;
+  const columns = 4;
   const headerHeight = 140;
   const footerHeight = 60;
   const padding = 32;
@@ -909,9 +909,14 @@ if (interaction.isChatInputCommand()) {
         name: 'collection-binder.png'
       });
 
-      await interaction.editReply({
-        content: `Here is your Lorcana binder, ${interaction.user.username} 🎴`,
-        files: [attachment]
+      const embed = new EmbedBuilder()
+  	.setTitle(`${interaction.user.username}'s Lorcana Binder 🎴`)
+ 	 .setImage('attachment://collection-binder.png')
+  	.setColor(0x00AE86);
+
+	await interaction.editReply({
+  	embeds: [embed],
+  	files: [attachment]
       });
     }
 
