@@ -599,6 +599,20 @@ async function handlePackChoice(interaction, packType, ownerId) {
 }
 
 client.on('interactionCreate', async interaction => {
+const ALLOWED_CHANNELS = [
+  '1501215673139990710'
+];
+
+// Block commands outside allowed channels
+if (interaction.isChatInputCommand()) {
+  if (!ALLOWED_CHANNELS.includes(interaction.channelId)) {
+    await interaction.reply({
+      content: 'Please use commands in #lore-collector 🎴',
+      ephemeral: true
+    });
+    return;
+  }
+}
   try {
     if (interaction.isButton()) {
       if (interaction.customId.startsWith('choose_pack_standard_')) {
