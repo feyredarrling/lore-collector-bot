@@ -57,7 +57,11 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('pack')
-    .setDescription('Choose and open a Lorcana card pack')
+    .setDescription('Choose and open a Lorcana card pack'),
+  
+  new SlashCommandBuilder()
+  .setName('help')
+  .setDescription('Learn how to use The Lore Collector'),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -980,6 +984,38 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply({ embeds: [embed] });
     }
+    if (interaction.commandName === 'help') {
+  await interaction.deferReply({ ephemeral: true });
+
+  const embed = new EmbedBuilder()
+    .setTitle('📖 The Lore Collector Guide')
+    .setDescription(
+      `Welcome to your Lorcana collection journey 🎴\n\n` +
+
+      `**🧪 Daily Loop**\n` +
+      `/daily → Get a free card + Ink (once per server per day)\n\n` +
+
+      `**💰 Ink**\n` +
+      `Use Ink to open packs\nCheck balance with /balance\n\n` +
+
+      `**🎴 Packs**\n` +
+      `/pack → Choose your pack\n` +
+      `• Standard Pack (100 Ink)\n` +
+      `• Premium Pack (250 Ink, better odds)\n\n` +
+
+      `**📚 Collection**\n` +
+      `/collection → View your binder\n` +
+      `/dupes → See extra cards\n\n` +
+
+      `**🏆 Competition**\n` +
+      `/leaderboard → Top collectors & richest players\n\n` +
+
+      `💡 Tip: Check in both servers daily to earn more Ink!`
+    )
+    .setColor(0x00AE86);
+
+  await interaction.editReply({ embeds: [embed] });
+}
   } catch (error) {
     console.error(error);
 
