@@ -57,17 +57,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('pack')
-    .setDescription('Open a Lorcana card pack')
-    .addStringOption(option =>
-      option
-        .setName('type')
-        .setDescription('Choose pack type')
-        .setRequired(false)
-        .addChoices(
-          { name: `Standard Pack - ${STANDARD_PACK_COST} Ink`, value: 'standard' },
-          { name: `Premium Pack - ${PREMIUM_PACK_COST} Ink`, value: 'premium' }
-        )
-    )
+    .setDescription('Choose and open a Lorcana card pack')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -181,6 +171,20 @@ function createRevealButton(userId, disabled = false, label = 'Reveal Next Card'
       .setLabel(label)
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled)
+  );
+}
+
+function createPackChoiceButtons(userId) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`choose_pack_standard_${userId}`)
+      .setLabel(`Standard Pack - ${STANDARD_PACK_COST} Ink`)
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId(`choose_pack_premium_${userId}`)
+      .setLabel(`Premium Pack - ${PREMIUM_PACK_COST} Ink`)
+      .setStyle(ButtonStyle.Success)
   );
 }
 
@@ -535,9 +539,71 @@ async function startPackReveal(interaction, userId, username, packItems, packLab
   });
 }
 
+async function handlePackChoice(interaction, packType, ownerId) {
+  if (interaction.user.id !== ownerId) {
+    await interaction.reply({
+      content: 'This is not your pack choice, sneaky little collector 👀',
+      ephemeral: true
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const userId = interaction.user.id;
+  const username = interaction.user.username;
+
+  await ensureUser(userId, username);
+
+  const isPremium = packType === 'premium';
+  const cost = isPremium ? PREMIUM_PACK_COST : STANDARD_PACK_COST;
+  const packLabel = isPremium ? 'Premium Pack' : 'Standard Pack';
+
+  const spendResult = await spendInk(userId, cost);
+
+  if (!spendResult.success) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle('Not enough Ink')
+          .setDescription(
+            `You need **${cost} Ink** to open a ${packLabel}.\nYou currently have **${spendResult.balance} Ink**.\n\nUse /daily to earn more.`
+          )
+          .setColor(0x00AE86)
+      ],
+      components: [createPackChoiceButtons(userId)]
+    });
+    return;
+  }
+
+  const pulledCards = isPremium ? createPremiumPack() : createStandardPack();
+  const packItems = await buildPackItems(userId, pulledCards);
+
+  await startPackReveal(
+    interaction,
+    userId,
+    username,
+    packItems,
+    packLabel,
+    `Spent **${cost} Ink**.\nRemaining balance: **${spendResult.balance} Ink**.\n\nYour ${packLabel} has **${packItems.length} cards**.\nClick the button below to reveal them one at a time.`
+  );
+}
+
 client.on('interactionCreate', async interaction => {
   try {
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith('choose_pack_standard_')) {
+        const ownerId = interaction.customId.replace('choose_pack_standard_', '');
+        await handlePackChoice(interaction, 'standard', ownerId);
+        return;
+      }
+
+      if (interaction.customId.startsWith('choose_pack_premium_')) {
+        const ownerId = interaction.customId.replace('choose_pack_premium_', '');
+        await handlePackChoice(interaction, 'premium', ownerId);
+        return;
+      }
+
       if (!interaction.customId.startsWith('reveal_pack_')) return;
 
       const ownerId = interaction.customId.replace('reveal_pack_', '');
@@ -713,34 +779,23 @@ client.on('interactionCreate', async interaction => {
 
       const userId = interaction.user.id;
       const username = interaction.user.username;
-      const packType = interaction.options.getString('type') || 'standard';
 
       await ensureUser(userId, username);
 
-      const isPremium = packType === 'premium';
-      const cost = isPremium ? PREMIUM_PACK_COST : STANDARD_PACK_COST;
-      const packLabel = isPremium ? 'Premium Pack' : 'Standard Pack';
+      const user = await getUser(userId);
+      const balance = user?.ink_balance || 0;
 
-      const spendResult = await spendInk(userId, cost);
+      const embed = new EmbedBuilder()
+        .setTitle('Choose your pack 🎴')
+        .setDescription(
+          `Current balance: **${balance} Ink**\n\n**Standard Pack** — ${STANDARD_PACK_COST} Ink\n3 Common, 2 Uncommon, 1 Rare+\n\n**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
+        )
+        .setColor(0x00AE86);
 
-      if (!spendResult.success) {
-        await interaction.editReply(
-          `You need **${cost} Ink** to open a ${packLabel}. You currently have **${spendResult.balance} Ink**. Use /daily to earn more.`
-        );
-        return;
-      }
-
-      const pulledCards = isPremium ? createPremiumPack() : createStandardPack();
-      const packItems = await buildPackItems(userId, pulledCards);
-
-      await startPackReveal(
-        interaction,
-        userId,
-        username,
-        packItems,
-        packLabel,
-        `Spent **${cost} Ink**.\nRemaining balance: **${spendResult.balance} Ink**.\n\nYour ${packLabel} has **${packItems.length} cards**.\nClick the button below to reveal them one at a time.`
-      );
+      await interaction.editReply({
+        embeds: [embed],
+        components: [createPackChoiceButtons(userId)]
+      });
     }
 
     if (interaction.commandName === 'collection') {
