@@ -712,17 +712,25 @@ client.on('interactionCreate', async interaction => {
           components: [createRevealButton(ownerId, true, 'Pack Complete')]
         });
 
-        const rarestCard = [...packData.items]
-          .map(item => item.card)
-          .sort((a, b) => (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0))[0];
+const hypeCards = packData.items
+  .map(item => item.card)
+  .filter(card => card.rarity === 'Enchanted' || card.rarity === 'Legendary');
 
-        if (rarestCard.rarity === 'Enchanted') {
-          await interaction.followUp('🚨 EVERYONE LOOK 🚨 ENCHANTED PULL IN CHAT 🚨');
-        } else if (rarestCard.rarity === 'Legendary') {
-          await interaction.followUp(
-            `💎 ${interaction.user.username} just pulled a LEGENDARY: **${rarestCard.name}**!`
-          );
-        }
+if (hypeCards.length > 0) {
+  const hypeList = hypeCards
+    .map(card => {
+      if (card.rarity === 'Enchanted') {
+        return `🌈 **ENCHANTED:** ${card.name}`;
+      }
+
+      return `💎 **LEGENDARY:** ${card.name}`;
+    })
+    .join('\n');
+
+  await interaction.followUp(
+    `🚨 ${interaction.user.username} pulled a BIG pack!\n${hypeList}`
+  );
+}
 
         return;
       }
