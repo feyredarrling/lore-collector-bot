@@ -20,10 +20,11 @@ const { createClient } = require('@supabase/supabase-js');
 const DAILY_INK_REWARD = 20;
 const STANDARD_PACK_COST = 100;
 const PREMIUM_PACK_COST = 250;
+const COLLECTION_PAGE_SIZE = 20;
 
-// Add Rachel's channel ID later
 const ALLOWED_CHANNELS = [
-  '1501215673139990710'
+  '1501215673139990710',
+  '1501239591984955543'
 ].filter(id => !id.includes('PASTE'));
 
 const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
@@ -38,6 +39,7 @@ const client = new Client({
 });
 
 const pendingPacks = new Map();
+const pendingCollections = new Map();
 
 const commands = [
   new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink for this server'),
@@ -169,11 +171,25 @@ function createPackChoiceButtons(userId) {
       .setCustomId(`choose_pack_standard_${userId}`)
       .setLabel(`Standard Pack - ${STANDARD_PACK_COST} Ink`)
       .setStyle(ButtonStyle.Primary),
-
     new ButtonBuilder()
       .setCustomId(`choose_pack_premium_${userId}`)
       .setLabel(`Premium Pack - ${PREMIUM_PACK_COST} Ink`)
       .setStyle(ButtonStyle.Success)
+  );
+}
+
+function createCollectionButtons(userId, page, totalPages) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`collection_prev_${userId}`)
+      .setLabel('Previous')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page <= 0),
+    new ButtonBuilder()
+      .setCustomId(`collection_next_${userId}`)
+      .setLabel('Next')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(page >= totalPages - 1)
   );
 }
 
@@ -362,41 +378,16 @@ async function downloadImageBuffer(url) {
   return Buffer.from(arrayBuffer);
 }
 
-function escapeSvgText(text) {
-  return String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
-function createSvgText(text, width, height, fontSize = 36) {
-  return Buffer.from(`
-    <svg width="${width}" height="${height}">
-      <rect width="100%" height="100%" fill="rgba(0,0,0,0.7)"/>
-      <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle"
-        font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#ffffff">
-        ${escapeSvgText(text)}
-      </text>
-    </svg>
-  `);
-}
-
-async function createCollectionImage(username, collectionDetails) {
+async function createCollectionImage(pageCards) {
   const cardWidth = 200;
   const cardHeight = 280;
   const gap = 16;
   const columns = 5;
-  const headerHeight = 32;
-  const footerHeight = 60;
-  const padding = 32;
+  const padding = 24;
 
-  const displayCards = collectionDetails.slice(0, 20);
-  const rows = Math.max(1, Math.ceil(displayCards.length / columns));
-
+  const rows = Math.max(1, Math.ceil(pageCards.length / columns));
   const imageWidth = padding * 2 + columns * cardWidth + (columns - 1) * gap;
-  const imageHeight =
-    headerHeight + padding + rows * (cardHeight + 44) + (rows - 1) * gap + footerHeight;
+  const imageHeight = padding * 2 + rows * cardHeight + (rows - 1) * gap;
 
   const background = sharp({
     create: {
@@ -409,51 +400,25 @@ async function createCollectionImage(username, collectionDetails) {
 
   const composites = [];
 
-  const totalCards = collectionDetails.reduce((sum, card) => sum + card.quantity, 0);
-  const uniqueCards = collectionDetails.length;
-
- 
-  for (let i = 0; i < displayCards.length; i++) {
-    const card = displayCards[i];
+  for (let i = 0; i < pageCards.length; i++) {
+    const card = pageCards[i];
     const row = Math.floor(i / columns);
     const col = i % columns;
 
     const left = padding + col * (cardWidth + gap);
-    const top = headerHeight + row * (cardHeight + 44 + gap);
+    const top = padding + row * (cardHeight + gap);
 
     try {
       const imageBuffer = await downloadImageBuffer(card.image);
       const resizedCard = await sharp(imageBuffer)
-        .resize(cardWidth, cardHeight, { fit: 'cover' })
+        .resize(cardWidth, cardHeight, { fit: 'contain', background: { r: 22, g: 32, b: 46, alpha: 1 } })
         .png()
         .toBuffer();
 
       composites.push({ input: resizedCard, top, left });
-
-      composites.push({
-        input: createSvgText(`x${card.quantity}`, 64, 34, 24),
-        top: top + cardHeight - 40,
-        left: left + cardWidth - 68
-      });
-
-      } catch (error) {
+    } catch (error) {
       console.error(`Failed to render card image for ${card.name}:`, error.message);
     }
-  }
-
-  if (collectionDetails.length > displayCards.length) {
-    composites.push({
-      input: Buffer.from(`
-        <svg width="${imageWidth}" height="${footerHeight}">
-          <text x="50%" y="36" text-anchor="middle"
-            font-family="Arial, sans-serif" font-size="20" fill="#d9f7f2">
-            Showing first ${displayCards.length} cards sorted by rarity. More binder pages coming soon.
-          </text>
-        </svg>
-      `),
-      top: imageHeight - footerHeight,
-      left: 0
-    });
   }
 
   return background.composite(composites).png().toBuffer();
@@ -469,6 +434,46 @@ function formatLeaderboardList(data, label) {
       return `${medal} **${user.username || 'Unknown'}** — ${user.value || 0} ${label}`;
     })
     .join('\n');
+}
+
+function getCollectionPageData(collectionDetails, page) {
+  const totalCards = collectionDetails.reduce((sum, card) => sum + card.quantity, 0);
+  const uniqueCards = collectionDetails.length;
+  const totalPages = Math.max(1, Math.ceil(collectionDetails.length / COLLECTION_PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 0), totalPages - 1);
+  const start = safePage * COLLECTION_PAGE_SIZE;
+  const pageCards = collectionDetails.slice(start, start + COLLECTION_PAGE_SIZE);
+
+  return {
+    totalCards,
+    uniqueCards,
+    totalPages,
+    page: safePage,
+    pageCards
+  };
+}
+
+async function createCollectionReply(userId, username, collectionDetails, page) {
+  const pageData = getCollectionPageData(collectionDetails, page);
+  const imageBuffer = await createCollectionImage(pageData.pageCards);
+
+  const attachment = new AttachmentBuilder(imageBuffer, {
+    name: 'collection-binder.png'
+  });
+
+  const content =
+    `Here is your Lorcana binder, ${username} 🎴\n` +
+    `Total Cards: **${pageData.totalCards}** • Unique Cards: **${pageData.uniqueCards}**\n` +
+    `Page **${pageData.page + 1}** of **${pageData.totalPages}**`;
+
+  return {
+    content,
+    files: [attachment],
+    components:
+      pageData.totalPages > 1
+        ? [createCollectionButtons(userId, pageData.page, pageData.totalPages)]
+        : []
+  };
 }
 
 async function startPackReveal(interaction, userId, username, packItems, packLabel, introText) {
@@ -555,6 +560,86 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isButton()) {
+      if (interaction.customId.startsWith('collection_prev_')) {
+        const ownerId = interaction.customId.replace('collection_prev_', '');
+
+        if (interaction.user.id !== ownerId) {
+          await interaction.reply({
+            content: 'This is not your binder, sneaky little collector 👀',
+            ephemeral: true
+          });
+          return;
+        }
+
+        const collectionData = pendingCollections.get(ownerId);
+
+        if (!collectionData) {
+          await interaction.reply({
+            content: 'This binder page expired. Use /collection again 🎴',
+            ephemeral: true
+          });
+          return;
+        }
+
+        collectionData.page -= 1;
+
+        await interaction.deferUpdate();
+
+        const reply = await createCollectionReply(
+          ownerId,
+          interaction.user.username,
+          collectionData.cards,
+          collectionData.page
+        );
+
+        await interaction.editReply({
+          ...reply,
+          attachments: []
+        });
+
+        return;
+      }
+
+      if (interaction.customId.startsWith('collection_next_')) {
+        const ownerId = interaction.customId.replace('collection_next_', '');
+
+        if (interaction.user.id !== ownerId) {
+          await interaction.reply({
+            content: 'This is not your binder, sneaky little collector 👀',
+            ephemeral: true
+          });
+          return;
+        }
+
+        const collectionData = pendingCollections.get(ownerId);
+
+        if (!collectionData) {
+          await interaction.reply({
+            content: 'This binder page expired. Use /collection again 🎴',
+            ephemeral: true
+          });
+          return;
+        }
+
+        collectionData.page += 1;
+
+        await interaction.deferUpdate();
+
+        const reply = await createCollectionReply(
+          ownerId,
+          interaction.user.username,
+          collectionData.cards,
+          collectionData.page
+        );
+
+        await interaction.editReply({
+          ...reply,
+          attachments: []
+        });
+
+        return;
+      }
+
       if (interaction.customId.startsWith('choose_pack_standard_')) {
         const ownerId = interaction.customId.replace('choose_pack_standard_', '');
         await handlePackChoice(interaction, 'standard', ownerId);
@@ -834,19 +919,19 @@ client.on('interactionCreate', async interaction => {
         return a.name.localeCompare(b.name);
       });
 
-      const imageBuffer = await createCollectionImage(
+      pendingCollections.set(userId, {
+        cards: collectionDetails,
+        page: 0
+      });
+
+      const reply = await createCollectionReply(
+        userId,
         interaction.user.username,
-        collectionDetails
+        collectionDetails,
+        0
       );
 
-      const attachment = new AttachmentBuilder(imageBuffer, {
-        name: 'collection-binder.png'
-      });
-
-      await interaction.editReply({
-         content: `Here is your Lorcana binder, ${interaction.user.username} 🎴\nTotal Cards: ${collectionDetails.reduce((sum, card) => sum + card.quantity, 0)} • Unique Cards: ${collectionDetails.length}`,
-        files: [attachment]
-      });
+      await interaction.editReply(reply);
     }
 
     if (interaction.commandName === 'dupes') {
