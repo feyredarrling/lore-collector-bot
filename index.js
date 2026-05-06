@@ -882,10 +882,48 @@ if (hypeCards.length > 0) {
         )
         .setColor(0x00AE86);
 
-      await interaction.editReply({
-        embeds: [embed],
-        components: [createPackChoiceButtons(userId)]
-      });
+      const canAffordStandard = balance >= STANDARD_PACK_COST;
+const canAffordPremium = balance >= PREMIUM_PACK_COST;
+
+// If they can't afford ANY packs → no buttons
+if (!canAffordStandard && !canAffordPremium) {
+  const noInkEmbed = new EmbedBuilder()
+    .setTitle('Not enough Ink 🎴')
+    .setDescription(
+      `You currently have **${balance} Ink**.\n\n` +
+      `Standard Pack — ${STANDARD_PACK_COST} Ink\n` +
+      `Premium Pack — ${PREMIUM_PACK_COST} Ink\n\n` +
+      `Use /daily to earn more Ink.`
+    )
+    .setColor(0xff4d4d);
+
+  await interaction.editReply({
+    embeds: [noInkEmbed],
+    components: []
+  });
+
+  return;
+}
+
+// Otherwise show buttons (but disable ones they can't afford)
+const row = new ActionRowBuilder().addComponents(
+  new ButtonBuilder()
+    .setCustomId(`choose_pack_standard_${userId}`)
+    .setLabel(`Standard Pack - ${STANDARD_PACK_COST} Ink`)
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(!canAffordStandard),
+
+  new ButtonBuilder()
+    .setCustomId(`choose_pack_premium_${userId}`)
+    .setLabel(`Premium Pack - ${PREMIUM_PACK_COST} Ink`)
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(!canAffordPremium)
+);
+
+await interaction.editReply({
+  embeds: [embed],
+  components: [row]
+});
     }
 
     if (interaction.commandName === 'collection') {
