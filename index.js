@@ -1,4 +1,8 @@
-require('dotenv').config();
+require('dotenv').config({
+  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
+});
+
+const lorcana = require('./lib/lorcana');
 
 const fs = require('fs');
 const sharp = require('sharp');
@@ -24,10 +28,15 @@ const MOTHERS_DAY_PACK_COST = 200;
 const COLLECTION_PAGE_SIZE = 20;
 const EVENT_TIMEZONE = 'America/New_York';
 
-const ALLOWED_CHANNELS = [
-  '1501215673139990710',
-  '1501239591984955543'
-].filter(id => !id.includes('PASTE'));
+//const ALLOWED_CHANNELS = [
+//  '1501215673139990710',
+//  '1501239591984955543'
+//].filter(id => !id.includes('PASTE'));
+
+const ALLOWED_CHANNELS = (process.env.ALLOWED_CHANNEL_IDS || '')
+  .split(',')
+  .map(id => id.trim())
+  .filter(Boolean);
 
 const MOTHERS_DAY_CARD_NAMES = [
   'Alma Madrigal - Accepting Grandmother',
@@ -936,16 +945,15 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      const embed = new EmbedBuilder()
-        .setTitle(`${rarityEmoji[randomCard.rarity] || '🎴'} ${randomCard.name}`)
-        .setDescription(
-          `${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, dailyCardIsNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**`
-        )
-        .setColor(0x00AE86);
+      const embed = lorcana.createSingleCardEmbed({
+  	username,
+  	card: randomCard,
+  	isNew: dailyCardIsNew
+      });
 
-      if (randomCard.image) {
-        embed.setImage(randomCard.image);
-      }
+      embed.setDescription(
+  	`${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, dailyCardIsNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**`
+      );
 
       await interaction.editReply({ embeds: [embed] });
     }
