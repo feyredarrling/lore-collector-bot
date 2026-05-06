@@ -20,14 +20,53 @@ const { createClient } = require('@supabase/supabase-js');
 const DAILY_INK_REWARD = 20;
 const STANDARD_PACK_COST = 100;
 const PREMIUM_PACK_COST = 250;
+const MOTHERS_DAY_PACK_COST = 200;
 const COLLECTION_PAGE_SIZE = 20;
+const EVENT_TIMEZONE = 'America/New_York';
 
 const ALLOWED_CHANNELS = [
   '1501215673139990710',
   '1501239591984955543'
 ].filter(id => !id.includes('PASTE'));
 
+const MOTHERS_DAY_CARD_NAMES = [
+  'Alma Madrigal - Accepting Grandmother',
+  'Alma Madrigal - Family Matriarch',
+  'Alma Madrigal - Heart of the Family',
+  'Alma Madrigal - Keeper of the Flame',
+  'Alma Madrigal - Leading the Way',
+  'Big Mama - Clever and Calming',
+  'Chicha - Dedicated Mother',
+  'Della Duck - Returning Mother',
+  'Eudora - Accomplished Seamstress',
+  'Fa Li - Mulan’s Mother',
+  'Grandmother Fa - Spirited Elder',
+  'Grandmother Willow - Ancient Advisor',
+  'Iduna - Caring Mother',
+  'Julieta Madrigal - Caring Baker',
+  'Julieta Madrigal - Excellent Cook',
+  'Kanga - Nurturing Mother',
+  'Minnie Mouse - Tiny Tim\'s Mother',
+  'Mrs. Incredible - Helen Parr',
+  'Mrs. Potts - Enchanted Teapot',
+  'Mrs. Potts - Head Housekeeper',
+  'Nani - Caring Sister',
+  'Nani - No Worries',
+  'Nani - Protective Sister',
+  'Perdita - Determined Mother',
+  'Perdita - Devoted Mother',
+  'Perdita - On the Lookout',
+  'Perdita - Playful Mother',
+  'Raksha - Fearless Mother',
+  'Sarabi - Protecting the Pride',
+  'Sina - Vigilant Parent'
+];
+
 const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
+
+const mothersDayPool = cards.filter(card =>
+  MOTHERS_DAY_CARD_NAMES.includes(card.name)
+);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -48,7 +87,7 @@ const commands = [
   new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
-  new SlashCommandBuilder().setName('lore').setDescription('Learn how to use The Lore Collector')
+  new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -56,12 +95,9 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 (async () => {
   try {
     await rest.put(
-  Routes.applicationGuildCommands(
-    process.env.DISCORD_CLIENT_ID,
-    process.env.DISCORD_GUILD_ID
-  ),
-  { body: commands }
-);
+      Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+      { body: commands }
+    );
 
     console.log('Global commands registered');
   } catch (error) {
@@ -92,6 +128,19 @@ const rarityOrder = {
   Common: 2,
   Promo: 1
 };
+
+function isMothersDayAvailable() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: EVENT_TIMEZONE,
+    month: 'numeric',
+    day: 'numeric'
+  }).formatToParts(new Date());
+
+  const month = Number(parts.find(part => part.type === 'month')?.value);
+  const day = Number(parts.find(part => part.type === 'day')?.value);
+
+  return month === 5 && day === 9;
+}
 
 function getCardById(cardId) {
   return cards.find(card => card.id === cardId);
@@ -148,6 +197,12 @@ function createPremiumPack() {
   ];
 }
 
+function createMothersDayPack() {
+  const pool = mothersDayPool.length ? mothersDayPool : cards;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 6);
+}
+
 function getPullMessage(card, isNew = false) {
   if (isNew) return '✨ **NEW CARD ADDED TO YOUR COLLECTION!** ✨';
   if (card.rarity === 'Enchanted') return '🌈✨ ENCHANTED PULL!!! STOP EVERYTHING.';
@@ -168,17 +223,32 @@ function createRevealButton(userId, disabled = false, label = 'Reveal Next Card'
   );
 }
 
-function createPackChoiceButtons(userId) {
-  return new ActionRowBuilder().addComponents(
+function createPackChoiceButtons(userId, balance) {
+  const buttons = [
     new ButtonBuilder()
       .setCustomId(`choose_pack_standard_${userId}`)
       .setLabel(`Standard Pack - ${STANDARD_PACK_COST} Ink`)
-      .setStyle(ButtonStyle.Primary),
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(balance < STANDARD_PACK_COST),
+
     new ButtonBuilder()
       .setCustomId(`choose_pack_premium_${userId}`)
       .setLabel(`Premium Pack - ${PREMIUM_PACK_COST} Ink`)
       .setStyle(ButtonStyle.Success)
-  );
+      .setDisabled(balance < PREMIUM_PACK_COST)
+  ];
+
+  if (isMothersDayAvailable()) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`choose_pack_mothers_${userId}`)
+        .setLabel(`Mother's Day Pack - ${MOTHERS_DAY_PACK_COST} Ink`)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(balance < MOTHERS_DAY_PACK_COST)
+    );
+  }
+
+  return new ActionRowBuilder().addComponents(buttons);
 }
 
 function createCollectionButtons(userId, page, totalPages) {
@@ -414,7 +484,10 @@ async function createCollectionImage(pageCards) {
     try {
       const imageBuffer = await downloadImageBuffer(card.image);
       const resizedCard = await sharp(imageBuffer)
-        .resize(cardWidth, cardHeight, { fit: 'contain', background: { r: 22, g: 32, b: 46, alpha: 1 } })
+        .resize(cardWidth, cardHeight, {
+          fit: 'contain',
+          background: { r: 22, g: 32, b: 46, alpha: 1 }
+        })
         .png()
         .toBuffer();
 
@@ -507,14 +580,33 @@ async function handlePackChoice(interaction, packType, ownerId) {
     return;
   }
 
+  if (packType === 'mothers' && !isMothersDayAvailable()) {
+    await interaction.reply({
+      content: 'The Mother’s Day Pack is not available right now 🎴',
+      ephemeral: true
+    });
+    return;
+  }
+
   const userId = interaction.user.id;
   const username = interaction.user.username;
 
   await ensureUser(userId, username);
 
   const isPremium = packType === 'premium';
-  const cost = isPremium ? PREMIUM_PACK_COST : STANDARD_PACK_COST;
-  const packLabel = isPremium ? 'Premium Pack' : 'Standard Pack';
+  const isMothers = packType === 'mothers';
+
+  const cost = isMothers
+    ? MOTHERS_DAY_PACK_COST
+    : isPremium
+      ? PREMIUM_PACK_COST
+      : STANDARD_PACK_COST;
+
+  const packLabel = isMothers
+    ? "Mother's Day Pack"
+    : isPremium
+      ? 'Premium Pack'
+      : 'Standard Pack';
 
   const spendResult = await spendInk(userId, cost);
 
@@ -537,7 +629,12 @@ async function handlePackChoice(interaction, packType, ownerId) {
 
   await interaction.deferUpdate();
 
-  const pulledCards = isPremium ? createPremiumPack() : createStandardPack();
+  const pulledCards = isMothers
+    ? createMothersDayPack()
+    : isPremium
+      ? createPremiumPack()
+      : createStandardPack();
+
   const packItems = await buildPackItems(userId, pulledCards);
 
   await startPackReveal(
@@ -655,6 +752,12 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
+      if (interaction.customId.startsWith('choose_pack_mothers_')) {
+        const ownerId = interaction.customId.replace('choose_pack_mothers_', '');
+        await handlePackChoice(interaction, 'mothers', ownerId);
+        return;
+      }
+
       if (!interaction.customId.startsWith('reveal_pack_')) return;
 
       const ownerId = interaction.customId.replace('reveal_pack_', '');
@@ -705,6 +808,10 @@ client.on('interactionCreate', async interaction => {
 
         embed.setFooter({ text: 'All cards were added to your collection.' });
 
+        const hypeCards = packData.items
+          .map(item => item.card)
+          .filter(card => card.rarity === 'Enchanted' || card.rarity === 'Legendary');
+
         pendingPacks.delete(ownerId);
 
         await interaction.update({
@@ -712,25 +819,21 @@ client.on('interactionCreate', async interaction => {
           components: [createRevealButton(ownerId, true, 'Pack Complete')]
         });
 
-const hypeCards = packData.items
-  .map(item => item.card)
-  .filter(card => card.rarity === 'Enchanted' || card.rarity === 'Legendary');
+        if (hypeCards.length > 0) {
+          const hypeList = hypeCards
+            .map(card => {
+              if (card.rarity === 'Enchanted') {
+                return `🌈 **ENCHANTED:** ${card.name}`;
+              }
 
-if (hypeCards.length > 0) {
-  const hypeList = hypeCards
-    .map(card => {
-      if (card.rarity === 'Enchanted') {
-        return `🌈 **ENCHANTED:** ${card.name}`;
-      }
+              return `💎 **LEGENDARY:** ${card.name}`;
+            })
+            .join('\n');
 
-      return `💎 **LEGENDARY:** ${card.name}`;
-    })
-    .join('\n');
-
-  await interaction.followUp(
-    `🚨 ${interaction.user.username} pulled a BIG pack!\n${hypeList}`
-  );
-}
+          await interaction.followUp(
+            `🚨 ${interaction.user.username} pulled a BIG pack!\n${hypeList}`
+          );
+        }
 
         return;
       }
@@ -761,7 +864,8 @@ if (hypeCards.length > 0) {
           `**Packs**\n` +
           `/pack → Choose a pack with buttons\n` +
           `• Standard Pack — ${STANDARD_PACK_COST} Ink\n` +
-          `• Premium Pack — ${PREMIUM_PACK_COST} Ink, better odds\n\n` +
+          `• Premium Pack — ${PREMIUM_PACK_COST} Ink, better odds\n` +
+          `• Mother's Day Pack — ${MOTHERS_DAY_PACK_COST} Ink, limited-time themed pack\n\n` +
           `**Collection**\n` +
           `/collection → View your visual binder\n` +
           `/dupes → See duplicate cards\n\n` +
@@ -871,59 +975,38 @@ if (hypeCards.length > 0) {
       const user = await getUser(userId);
       const balance = user?.ink_balance || 0;
 
+      const packDescriptionParts = [
+        `Current balance: **${balance} Ink**\n`,
+        `**Standard Pack** — ${STANDARD_PACK_COST} Ink\n3 Common, 2 Uncommon, 1 Rare+\n`,
+        `**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
+      ];
+
+      if (isMothersDayAvailable()) {
+        packDescriptionParts.push(
+          `**Mother's Day Pack** — ${MOTHERS_DAY_PACK_COST} Ink\n6 limited-time motherly cards`
+        );
+      }
+
+      const canAffordAnyPack =
+        balance >= STANDARD_PACK_COST ||
+        balance >= PREMIUM_PACK_COST ||
+        (isMothersDayAvailable() && balance >= MOTHERS_DAY_PACK_COST);
+
       const embed = new EmbedBuilder()
-        .setTitle('Choose your pack 🎴')
+        .setTitle(canAffordAnyPack ? 'Choose your pack 🎴' : 'Not enough Ink 🎴')
         .setDescription(
-          `Current balance: **${balance} Ink**\n\n` +
-          `**Standard Pack** — ${STANDARD_PACK_COST} Ink\n` +
-          `3 Common, 2 Uncommon, 1 Rare+\n\n` +
-          `**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n` +
-          `1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
+          canAffordAnyPack
+            ? packDescriptionParts.join('\n\n')
+            : `You currently have **${balance} Ink**.\n\nStandard Pack — ${STANDARD_PACK_COST} Ink\nPremium Pack — ${PREMIUM_PACK_COST} Ink${
+                isMothersDayAvailable() ? `\nMother's Day Pack — ${MOTHERS_DAY_PACK_COST} Ink` : ''
+              }\n\nUse /daily to earn more Ink.`
         )
-        .setColor(0x00AE86);
+        .setColor(canAffordAnyPack ? 0x00AE86 : 0xff4d4d);
 
-      const canAffordStandard = balance >= STANDARD_PACK_COST;
-const canAffordPremium = balance >= PREMIUM_PACK_COST;
-
-// If they can't afford ANY packs → no buttons
-if (!canAffordStandard && !canAffordPremium) {
-  const noInkEmbed = new EmbedBuilder()
-    .setTitle('Not enough Ink 🎴')
-    .setDescription(
-      `You currently have **${balance} Ink**.\n\n` +
-      `Standard Pack — ${STANDARD_PACK_COST} Ink\n` +
-      `Premium Pack — ${PREMIUM_PACK_COST} Ink\n\n` +
-      `Use /daily to earn more Ink.`
-    )
-    .setColor(0xff4d4d);
-
-  await interaction.editReply({
-    embeds: [noInkEmbed],
-    components: []
-  });
-
-  return;
-}
-
-// Otherwise show buttons (but disable ones they can't afford)
-const row = new ActionRowBuilder().addComponents(
-  new ButtonBuilder()
-    .setCustomId(`choose_pack_standard_${userId}`)
-    .setLabel(`Standard Pack - ${STANDARD_PACK_COST} Ink`)
-    .setStyle(ButtonStyle.Primary)
-    .setDisabled(!canAffordStandard),
-
-  new ButtonBuilder()
-    .setCustomId(`choose_pack_premium_${userId}`)
-    .setLabel(`Premium Pack - ${PREMIUM_PACK_COST} Ink`)
-    .setStyle(ButtonStyle.Success)
-    .setDisabled(!canAffordPremium)
-);
-
-await interaction.editReply({
-  embeds: [embed],
-  components: [row]
-});
+      await interaction.editReply({
+        embeds: [embed],
+        components: canAffordAnyPack ? [createPackChoiceButtons(userId, balance)] : []
+      });
     }
 
     if (interaction.commandName === 'collection') {
