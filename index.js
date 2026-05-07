@@ -196,32 +196,31 @@ async function processAnnouncements() {
         continue;
       }
 
-      const previousMessageId =
-        lastAnnouncementMessages.get(channelId);
+      const { data: savedMessage } = await supabase
+  .from('announcement_messages')
+  .select('message_id')
+  .eq('announcement_id', announcement.id)
+  .eq('channel_id', channelId)
+  .maybeSingle();
 
-      if (previousMessageId) {
+if (savedMessage?.message_id) {
+  try {
+    const previousMessage = await channel.messages.fetch(savedMessage.message_id);
+    await previousMessage.delete();
+  } catch {
+    // Ignore if the old message was already deleted
+  }
+}
 
-        try {
+const newMessage = await channel.send(announcement.message);
 
-          const previousMessage =
-            await channel.messages.fetch(previousMessageId);
-
-          await previousMessage.delete();
-
-        } catch {
-          // ignore
-        }
-
-      }
-
-      const newMessage = await channel.send(
-        announcement.message
-      );
-
-      lastAnnouncementMessages.set(
-        channelId,
-        newMessage.id
-      );
+await supabase
+  .from('announcement_messages')
+  .upsert({
+    announcement_id: announcement.id,
+    channel_id: channelId,
+    message_id: newMessage.id
+  });
 
     } catch (error) {
 
