@@ -832,28 +832,16 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isButton()) {
 
-      if (interaction.customId === 'announcement_daily') {
-  await interaction.reply({
-    content: 'Use `/daily` in this channel to claim your daily card + Ink 🎴',
-    ephemeral: true
-  });
-  return;
+     if (interaction.customId === 'announcement_daily') {
+  interaction.commandName = 'daily';
 }
 
 if (interaction.customId === 'announcement_balance') {
-  await interaction.reply({
-    content: 'Use `/balance` to check your current Ink total 💰',
-    ephemeral: true
-  });
-  return;
+  interaction.commandName = 'balance';
 }
 
 if (interaction.customId === 'announcement_pack') {
-  await interaction.reply({
-    content: 'Use `/pack` to choose and open a pack 🎁',
-    ephemeral: true
-  });
-  return;
+  interaction.commandName = 'pack';
 }
       if (interaction.customId.startsWith('collection_prev_')) {
         const ownerId = interaction.customId.replace('collection_prev_', '');
