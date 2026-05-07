@@ -820,6 +820,8 @@ async function handlePackChoice(interaction, packType, ownerId) {
 
 client.on('interactionCreate', async interaction => {
   try {
+    let commandName = interaction.isChatInputCommand() ? interaction.commandName : null;
+
     if (ALLOWED_CHANNELS.length > 0 && !ALLOWED_CHANNELS.includes(interaction.channelId)) {
       if (interaction.isChatInputCommand()) {
         await interaction.reply({
@@ -832,17 +834,14 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isButton()) {
 
-     if (interaction.customId === 'announcement_daily') {
-  interaction.commandName = 'daily';
-}
+      if (interaction.customId === 'announcement_daily') {
+        commandName = 'daily';
+      } else if (interaction.customId === 'announcement_balance') {
+        commandName = 'balance';
+      } else if (interaction.customId === 'announcement_pack') {
+        commandName = 'pack';
+      } else {
 
-if (interaction.customId === 'announcement_balance') {
-  interaction.commandName = 'balance';
-}
-
-if (interaction.customId === 'announcement_pack') {
-  interaction.commandName = 'pack';
-}
       if (interaction.customId.startsWith('collection_prev_')) {
         const ownerId = interaction.customId.replace('collection_prev_', '');
 
@@ -1029,16 +1028,16 @@ if (interaction.customId === 'announcement_pack') {
       return;
     }
 
-    if (!interaction.isChatInputCommand()) return;
+       if (!commandName) return;
 
     // =========================
 // ANNOUNCEMENT ADMIN COMMANDS
 // =========================
 
 if (
-  interaction.commandName === 'announcement-set' ||
-  interaction.commandName === 'announcement-stop' ||
-  interaction.commandName === 'announcement-status'
+  commandName === 'announcement-set' ||
+  commandName === 'announcement-stop' ||
+  commandName === 'announcement-status'
 ) {
 
   if (
@@ -1077,6 +1076,7 @@ if (interaction.commandName === 'announcement-set') {
       interval_hours: intervalHours,
       end_at: parsedEndAt,
       is_active: true,
+      last_posted_at: null,
       created_by: interaction.user.id,
       updated_at: new Date().toISOString()
     });
