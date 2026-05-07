@@ -212,7 +212,10 @@ if (savedMessage?.message_id) {
   }
 }
 
-const newMessage = await channel.send(announcement.message);
+const newMessage = await channel.send({
+  content: announcement.message,
+  components: [createAnnouncementButtons()]
+});
 
 await supabase
   .from('announcement_messages')
@@ -395,6 +398,28 @@ function createPackChoiceButtons(userId, balance) {
   }
 
   return new ActionRowBuilder().addComponents(buttons);
+}
+
+function createAnnouncementButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('announcement_daily')
+      .setLabel('Daily')
+      .setEmoji('🎴')
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId('announcement_balance')
+      .setLabel('Balance')
+      .setEmoji('💰')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId('announcement_pack')
+      .setLabel('Pack')
+      .setEmoji('🎁')
+      .setStyle(ButtonStyle.Success)
+  );
 }
 
 function createCollectionButtons(userId, page, totalPages) {
@@ -806,6 +831,30 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (interaction.isButton()) {
+
+      if (interaction.customId === 'announcement_daily') {
+  await interaction.reply({
+    content: 'Use `/daily` in this channel to claim your daily card + Ink 🎴',
+    ephemeral: true
+  });
+  return;
+}
+
+if (interaction.customId === 'announcement_balance') {
+  await interaction.reply({
+    content: 'Use `/balance` to check your current Ink total 💰',
+    ephemeral: true
+  });
+  return;
+}
+
+if (interaction.customId === 'announcement_pack') {
+  await interaction.reply({
+    content: 'Use `/pack` to choose and open a pack 🎁',
+    ephemeral: true
+  });
+  return;
+}
       if (interaction.customId.startsWith('collection_prev_')) {
         const ownerId = interaction.customId.replace('collection_prev_', '');
 
