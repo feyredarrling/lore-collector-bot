@@ -12,7 +12,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
-  AttachmentBuilder
+  AttachmentBuilder,
+  PermissionsBitField
 } = require('discord.js');
 
 const { createClient } = require('@supabase/supabase-js');
@@ -87,7 +88,36 @@ const commands = [
   new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
-  new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector')
+  new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector'),
+  new SlashCommandBuilder()
+  .setName('announcement-set')
+  .setDescription('Admin only: set a rotating channel announcement')
+  .addStringOption(option =>
+    option
+      .setName('message')
+      .setDescription('Announcement message')
+      .setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option
+      .setName('interval_hours')
+      .setDescription('How often to repost the announcement')
+      .setRequired(true)
+  )
+  .addStringOption(option =>
+    option
+      .setName('end_at')
+      .setDescription('When to stop, like 2026-05-10 00:00')
+      .setRequired(false)
+  ),
+
+new SlashCommandBuilder()
+  .setName('announcement-stop')
+  .setDescription('Admin only: stop the rotating announcement'),
+
+new SlashCommandBuilder()
+  .setName('announcement-status')
+  .setDescription('Admin only: view the active rotating announcement')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -105,8 +135,125 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   }
 })();
 
+const lastAnnouncementMessages = new Map();
+
+async function processAnnouncements() {
+
+  const { data: announcement, error } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('id', 'global')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load announcement:', error);
+    return;
+  }
+
+  if (!announcement || !announcement.is_active) {
+    return;
+  }
+
+  // Stop if expired
+  if (
+    announcement.end_at &&
+    new Date() > new Date(announcement.end_at)
+  ) {
+    await supabase
+      .from('announcements')
+      .update({
+        is_active: false
+      })
+      .eq('id', 'global');
+
+    return;
+  }
+
+  const now = new Date();
+
+  const lastPosted = announcement.last_posted_at
+    ? new Date(announcement.last_posted_at)
+    : null;
+
+  const intervalMs =
+    announcement.interval_hours * 60 * 60 * 1000;
+
+  const shouldPost =
+    !lastPosted ||
+    now - lastPosted >= intervalMs;
+
+  if (!shouldPost) {
+    return;
+  }
+
+  for (const channelId of ALLOWED_CHANNELS) {
+
+    try {
+
+      const channel = await client.channels.fetch(channelId);
+
+      if (!channel || !channel.isTextBased()) {
+        continue;
+      }
+
+      const previousMessageId =
+        lastAnnouncementMessages.get(channelId);
+
+      if (previousMessageId) {
+
+        try {
+
+          const previousMessage =
+            await channel.messages.fetch(previousMessageId);
+
+          await previousMessage.delete();
+
+        } catch {
+          // ignore
+        }
+
+      }
+
+      const newMessage = await channel.send(
+        announcement.message
+      );
+
+      lastAnnouncementMessages.set(
+        channelId,
+        newMessage.id
+      );
+
+    } catch (error) {
+
+      console.error(
+        `Failed posting announcement in ${channelId}:`,
+        error
+      );
+
+    }
+
+  }
+
+  await supabase
+    .from('announcements')
+    .update({
+      last_posted_at: now.toISOString()
+    })
+    .eq('id', 'global');
+
+}
+
 client.once('clientReady', () => {
+
   console.log(`Logged in as ${client.user.tag}`);
+
+  processAnnouncements();
+
+  setInterval(
+    processAnnouncements,
+    5 * 60 * 1000
+  );
+
 });
 
 const rarityEmoji = {
@@ -847,6 +994,118 @@ client.on('interactionCreate', async interaction => {
     }
 
     if (!interaction.isChatInputCommand()) return;
+
+    // =========================
+// ANNOUNCEMENT ADMIN COMMANDS
+// =========================
+
+if (
+  interaction.commandName === 'announcement-set' ||
+  interaction.commandName === 'announcement-stop' ||
+  interaction.commandName === 'announcement-status'
+) {
+
+  if (
+    !interaction.member.permissions.has(
+      PermissionsBitField.Flags.Administrator
+    )
+  ) {
+    await interaction.reply({
+      content: 'Only server admins can use announcement commands.',
+      ephemeral: true
+    });
+
+    return;
+  }
+
+}
+
+// SET ANNOUNCEMENT
+if (interaction.commandName === 'announcement-set') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const message = interaction.options.getString('message');
+  const intervalHours = interaction.options.getInteger('interval_hours');
+  const endAt = interaction.options.getString('end_at');
+
+  const parsedEndAt = endAt
+    ? new Date(endAt).toISOString()
+    : null;
+
+  const { error } = await supabase
+    .from('announcements')
+    .upsert({
+      id: 'global',
+      message,
+      interval_hours: intervalHours,
+      end_at: parsedEndAt,
+      is_active: true,
+      created_by: interaction.user.id,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) throw error;
+
+  await interaction.editReply(
+    '✅ Rotating announcement updated successfully.'
+  );
+
+  return;
+}
+
+// STOP ANNOUNCEMENT
+if (interaction.commandName === 'announcement-stop') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { error } = await supabase
+    .from('announcements')
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', 'global');
+
+  if (error) throw error;
+
+  await interaction.editReply(
+    '🛑 Rotating announcement stopped.'
+  );
+
+  return;
+}
+
+// STATUS
+if (interaction.commandName === 'announcement-status') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { data, error } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('id', 'global')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data || !data.is_active) {
+    await interaction.editReply(
+      'No active rotating announcement.'
+    );
+
+    return;
+  }
+
+  await interaction.editReply(
+    `📢 Active Announcement\n\n` +
+    `Message:\n${data.message}\n\n` +
+    `Interval: Every ${data.interval_hours} hour(s)\n` +
+    `Ends: ${data.end_at || 'No end date'}`
+  );
+
+  return;
+}
 
     if (interaction.commandName === 'lore') {
       await interaction.deferReply({ ephemeral: true });
