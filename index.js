@@ -1027,6 +1027,7 @@ client.on('interactionCreate', async interaction => {
 
       return;
     }
+    }
 
        if (!commandName) return;
 
@@ -1512,6 +1513,7 @@ if (randomCard.rarity === 'Enchanted') {
 
       await interaction.editReply({ embeds: [embed] });
     }
+   
   } catch (error) {
     console.error(error);
 
