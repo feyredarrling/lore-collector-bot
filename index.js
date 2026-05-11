@@ -1229,20 +1229,7 @@ if (interaction.commandName === 'announcement-status') {
           components: [createRevealButton(userId, false, 'Reveal Free Premium Pack')]
         });
 
-        if (randomCard.rarity === 'Enchanted') {
-
-  await interaction.followUp(
-    `🚨 ${interaction.user.username} pulled an ENCHANTED daily card!\n🌈 **ENCHANTED:** ${randomCard.name}`
-  );
-
-} else if (randomCard.rarity === 'Legendary') {
-
-  await interaction.followUp(
-    `🚨 ${interaction.user.username} pulled a LEGENDARY daily card!\n💎 **LEGENDARY:** ${randomCard.name}`
-  );
-
-}
-
+        
         return;
       }
 
