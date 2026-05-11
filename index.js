@@ -27,15 +27,31 @@
  */
 
 
+// Loads environment variables.
+// NODE_ENV=test loads .env.test for safe local testing.
+// Otherwise, the bot uses .env for production/Railway.
 
 require('dotenv').config({
   path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
 });
 
+
+// Shared Lorcana game logic used by both the live Discord bot and Twitch testing.
+
 const lorcana = require('./lib/lorcana');
 
+
+// File system access for loading card data.
+
 const fs = require('fs');
+
+
+// Sharp is used to generate collection binder images.
+
 const sharp = require('sharp');
+
+// Discord.js tools used for slash commands, embeds, buttons, and image attachments.
+
 const {
   Client,
   GatewayIntentBits,
@@ -49,7 +65,14 @@ const {
   AttachmentBuilder
 } = require('discord.js');
 
+
+// Supabase client used for users, cards, daily claims, ink balances, and leaderboards.
+
 const { createClient } = require('@supabase/supabase-js');
+
+
+// Economy settings.
+// These control ink rewards and pack costs.
 
 const DAILY_INK_REWARD = 20;
 const STANDARD_PACK_COST = 100;
@@ -58,15 +81,23 @@ const MOTHERS_DAY_PACK_COST = 200;
 const COLLECTION_PAGE_SIZE = 20;
 const EVENT_TIMEZONE = 'America/New_York';
 
-//const ALLOWED_CHANNELS = [
-//  '1501215673139990710',
-//  '1501239591984955543'
-//].filter(id => !id.includes('PASTE'));
+
+// Restricts where bot commands can run.
+// Production and testing environments each use different channel IDs
+// through .env / .env.test.
+
+// Prevents the bot from being spammed across unrelated channels.
+// Production and testing environments intentionally use different channel lists.
 
 const ALLOWED_CHANNELS = (process.env.ALLOWED_CHANNEL_IDS || '')
   .split(',')
   .map(id => id.trim())
   .filter(Boolean);
+
+
+// Special event card pool.
+// These names are used to build the limited Mother's Day pack
+// from the full cards.json list.
 
 const MOTHERS_DAY_CARD_NAMES = [
   'Alma Madrigal - Accepting Grandmother',
@@ -101,23 +132,43 @@ const MOTHERS_DAY_CARD_NAMES = [
   'Sina - Vigilant Parent'
 ];
 
+
+// Full Lorcana card database loaded from local JSON.
+
 const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
 
 const mothersDayPool = cards.filter(card =>
   MOTHERS_DAY_CARD_NAMES.includes(card.name)
 );
 
+
+// Supabase database connection.
+// Environment variables determine whether this points to LIVE or TEST data.
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+
+// Main Discord bot client connection.
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+
+// Temporary in-memory state for interactive Discord button flows.
+// These reset when the bot restarts.
+
+// Stores pack reveal progress by user ID.
 const pendingPacks = new Map();
+// Stores collection page/binder state by user ID.
 const pendingCollections = new Map();
+
+
+// Slash commands registered with Discord.
+// These define the commands users can run in the server.
 
 const commands = [
   new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink for this server'),
@@ -127,9 +178,17 @@ const commands = [
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
   new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector')
+// Discord requires slash commands to be converted to JSON before registration.
 ].map(command => command.toJSON());
 
+
+// REST client used to register/update slash commands with Discord.
+
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+
+// Registers slash commands globally with Discord when the bot starts.
+// Global commands can take a little time to update in Discord.
 
 (async () => {
   try {
@@ -148,25 +207,15 @@ client.once('clientReady', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-const rarityEmoji = {
-  Common: '⚪',
-  Uncommon: '🟢',
-  Rare: '🔵',
-  'Super Rare': '🟣',
-  Legendary: '💎',
-  Enchanted: '🌈',
-  Promo: '✨'
-};
 
-const rarityOrder = {
-  Enchanted: 7,
-  Legendary: 6,
-  'Super Rare': 5,
-  Rare: 4,
-  Uncommon: 3,
-  Common: 2,
-  Promo: 1
-};
+// =====================================================
+// Card Pull + Pack Generation Helpers
+// Handles rarity rolls, pack creation, and pull messaging.
+// =====================================================
+
+
+// Checks whether the Mother's Day event pack should be available.
+// Uses a fixed timezone so the event activates consistently for everyone.
 
 function isMothersDayAvailable() {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -181,18 +230,39 @@ function isMothersDayAvailable() {
   return month === 5 && day === 9;
 }
 
+
+// Finds a specific card from cards.json by its unique card ID.
+
 function getCardById(cardId) {
   return cards.find(card => card.id === cardId);
 }
+
+
+// Returns one random card from a provided card pool/array.
 
 function getRandomCardFromPool(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+
+// Pulls a random card matching a specific rarity.
+// Falls back to the full card pool if no cards match.
+
 function getRandomCardByRarity(rarity) {
   const pool = cards.filter(card => card.rarity === rarity);
   return pool.length ? getRandomCardFromPool(pool) : getRandomCardFromPool(cards);
 }
+
+
+// Handles rarity odds for standard packs.
+// Controls chances for Rare, Super Rare, Legendary, and Enchanted pulls.
+
+
+// Current standard pack odds:
+// Enchanted: 1%
+// Legendary: 5%
+// Super Rare: 14%
+// Rare: remaining chance
 
 function getStandardRareOrBetterCard() {
   const roll = Math.random();
@@ -204,6 +274,16 @@ function getStandardRareOrBetterCard() {
   return getRandomCardByRarity('Rare');
 }
 
+
+// Handles boosted rarity odds for premium packs.
+
+
+// Current premium pack odds:
+// Enchanted: 5%
+// Legendary: 10%
+// Super Rare: 20%
+// Rare: remaining chance
+
 function getPremiumRareOrBetterCard() {
   const roll = Math.random();
 
@@ -213,6 +293,9 @@ function getPremiumRareOrBetterCard() {
 
   return getRandomCardByRarity('Rare');
 }
+
+
+// Generates the full contents of a standard pack.
 
 function createStandardPack() {
   return [
@@ -225,6 +308,9 @@ function createStandardPack() {
   ];
 }
 
+
+// Generates the full contents of a premium pack with improved rarity odds.
+
 function createPremiumPack() {
   return [
     getRandomCardByRarity('Common'),
@@ -236,11 +322,25 @@ function createPremiumPack() {
   ];
 }
 
+
+// Generates a limited-time Mother's Day themed pack.
+// Falls back to all cards if the themed pool is empty.
+
 function createMothersDayPack() {
   const pool = mothersDayPool.length ? mothersDayPool : cards;
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, 6);
 }
+
+
+// =====================================================
+// Discord Message + Button UI Helpers
+// Builds pull messages, buttons, and interactive Discord UI.
+// =====================================================
+
+
+// Returns flavor text shown after a card pull.
+// Special rarities get more exciting reactions/messages.
 
 function getPullMessage(card, isNew = false) {
   if (isNew) return '✨ **NEW CARD ADDED TO YOUR COLLECTION!** ✨';
@@ -252,6 +352,9 @@ function getPullMessage(card, isNew = false) {
   return 'Added to your collection.';
 }
 
+
+// Creates the "Reveal Next Card" button used during pack openings.
+
 function createRevealButton(userId, disabled = false, label = 'Reveal Next Card') {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -261,6 +364,10 @@ function createRevealButton(userId, disabled = false, label = 'Reveal Next Card'
       .setDisabled(disabled)
   );
 }
+
+
+// Creates the pack selection buttons shown during /pack.
+// Buttons automatically disable if the user cannot afford the pack.
 
 function createPackChoiceButtons(userId, balance) {
   const buttons = [
@@ -290,6 +397,9 @@ function createPackChoiceButtons(userId, balance) {
   return new ActionRowBuilder().addComponents(buttons);
 }
 
+
+// Creates Previous/Next page buttons for collection binder navigation.
+
 function createCollectionButtons(userId, page, totalPages) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -305,6 +415,9 @@ function createCollectionButtons(userId, page, totalPages) {
   );
 }
 
+
+// Builds the final text summary shown after a pack is fully revealed.
+
 function createPackSummary(packItems) {
   return packItems
     .map(item => {
@@ -314,6 +427,21 @@ function createPackSummary(packItems) {
     .join('\n');
 }
 
+
+// =====================================================
+// User + Collection Database Helpers
+// Handles Supabase storage for users, cards, ink, and daily claims.
+// =====================================================
+
+
+// Creates or updates a user record in Supabase.
+// Called before most economy or collection actions.
+
+// Supabase tables used in this section:
+// users
+// daily_claims
+// user_cards
+
 async function ensureUser(userId, username) {
   const { error } = await supabase.from('users').upsert({
     discord_user_id: userId,
@@ -322,6 +450,9 @@ async function ensureUser(userId, username) {
 
   if (error) throw error;
 }
+
+
+// Retrieves a user's stored profile and ink balance.
 
 async function getUser(userId) {
   const { data, error } = await supabase
@@ -334,6 +465,10 @@ async function getUser(userId) {
   return data;
 }
 
+
+// Checks whether the user has EVER claimed a daily reward before.
+// Used for first-time bonus rewards.
+
 async function hasAnyDailyClaim(userId) {
   const { data, error } = await supabase
     .from('daily_claims')
@@ -344,6 +479,9 @@ async function hasAnyDailyClaim(userId) {
   if (error) throw error;
   return data && data.length > 0;
 }
+
+
+// Retrieves the user's most recent daily claim for a specific server.
 
 async function getDailyClaim(userId, guildId) {
   const { data, error } = await supabase
@@ -356,6 +494,9 @@ async function getDailyClaim(userId, guildId) {
   if (error) throw error;
   return data;
 }
+
+
+// Updates the user's daily claim timestamp for the current server.
 
 async function setDailyClaim(userId, guildId, today) {
   const { error } = await supabase
@@ -370,6 +511,9 @@ async function setDailyClaim(userId, guildId, today) {
   if (error) throw error;
 }
 
+
+// Checks whether the user already owns a specific card.
+
 async function isNewCard(userId, cardId) {
   const { data, error } = await supabase
     .from('user_cards')
@@ -381,6 +525,9 @@ async function isNewCard(userId, cardId) {
   if (error) throw error;
   return !data;
 }
+
+
+// Adds ink currency to a user's balance.
 
 async function addInk(userId, username, amount) {
   await ensureUser(userId, username);
@@ -401,6 +548,10 @@ async function addInk(userId, username, amount) {
   return newBalance;
 }
 
+
+// Removes ink from a user's balance.
+// Prevents spending more ink than the user owns.
+
 async function spendInk(userId, amount) {
   const user = await getUser(userId);
   const currentBalance = user?.ink_balance || 0;
@@ -420,6 +571,10 @@ async function spendInk(userId, amount) {
 
   return { success: true, balance: newBalance };
 }
+
+
+// Adds a card to the user's collection.
+// If the card already exists, quantity increases instead.
 
 async function addCardToCollection(userId, username, cardId) {
   await ensureUser(userId, username);
@@ -455,6 +610,17 @@ async function addCardToCollection(userId, username, cardId) {
   }
 }
 
+
+// =====================================================
+// Pack Processing + Collection Image Generation
+// Handles pack ownership logic and visual collection rendering.
+// =====================================================
+
+
+// Determines whether pulled cards are NEW or DUPLICATES.
+// Also prevents duplicate cards inside the SAME pack
+// from incorrectly showing as "new" multiple times.
+
 async function buildPackItems(userId, pulledCards) {
   const seenInThisPack = new Set();
   const packItems = [];
@@ -474,6 +640,9 @@ async function buildPackItems(userId, pulledCards) {
   return packItems;
 }
 
+
+// Adds all cards from a completed pack reveal into the user's collection.
+
 async function addPackItemsToCollection(userId, username, packItems) {
   await ensureUser(userId, username);
 
@@ -482,6 +651,9 @@ async function addPackItemsToCollection(userId, username, packItems) {
   }
 }
 
+
+// Downloads a card image so Sharp can use it in collection binder generation.
+
 async function downloadImageBuffer(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Image download failed: ${response.status}`);
@@ -489,6 +661,10 @@ async function downloadImageBuffer(url) {
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);
 }
+
+
+// Generates the visual collection binder image shown in /collection.
+// Uses Sharp to combine multiple card images into a grid layout.
 
 async function createCollectionImage(pageCards) {
   const cardWidth = 200;
@@ -539,6 +715,10 @@ async function createCollectionImage(pageCards) {
   return background.composite(composites).png().toBuffer();
 }
 
+
+// Formats leaderboard results into a clean Discord message.
+// Used for displaying top users by ink, collection size, or other stats.
+
 function formatLeaderboardList(data, label) {
   if (!data || data.length === 0) return 'No data yet.';
 
@@ -550,6 +730,10 @@ function formatLeaderboardList(data, label) {
     })
     .join('\n');
 }
+
+
+// Calculates which cards belong on a specific collection binder page.
+// Handles pagination logic for the /collection image viewer.
 
 function getCollectionPageData(collectionDetails, page) {
   const totalCards = collectionDetails.reduce((sum, card) => sum + card.quantity, 0);
@@ -567,6 +751,10 @@ function getCollectionPageData(collectionDetails, page) {
     pageCards
   };
 }
+
+
+// Builds the full Discord response for a collection binder page.
+// Generates the binder image, page navigation buttons, and summary text.
 
 async function createCollectionReply(userId, username, collectionDetails, page) {
   const pageData = getCollectionPageData(collectionDetails, page);
@@ -591,6 +779,10 @@ async function createCollectionReply(userId, username, collectionDetails, page) 
   };
 }
 
+
+// Starts the interactive pack reveal sequence.
+// Stores temporary reveal progress and sends the first reveal message/button.
+
 async function startPackReveal(interaction, userId, username, packItems, packLabel, introText) {
   await addPackItemsToCollection(userId, username, packItems);
 
@@ -609,6 +801,10 @@ async function startPackReveal(interaction, userId, username, packItems, packLab
     components: [createRevealButton(userId)]
   });
 }
+
+
+// Processes a user's selected pack type from the pack choice buttons.
+// Handles ink spending, pack generation, and starting the reveal flow.
 
 async function handlePackChoice(interaction, packType, ownerId) {
   if (interaction.user.id !== ownerId) {
@@ -686,9 +882,24 @@ async function handlePackChoice(interaction, packType, ownerId) {
   );
 }
 
+
+// =====================================================
+// Discord Interaction Handler
+// Main event listener for slash commands and button interactions.
+// =====================================================
+
+// IMPORTANT:
+// All Discord interactions pass through this single handler.
+// Be careful when adding new button IDs or command names
+// to avoid accidental overlap/conflicts.
+
 client.on('interactionCreate', async interaction => {
   try {
     if (ALLOWED_CHANNELS.length > 0 && !ALLOWED_CHANNELS.includes(interaction.channelId)) {
+      
+
+      // Handles slash commands like /daily, /pack, /collection, etc.
+
       if (interaction.isChatInputCommand()) {
         await interaction.reply({
           content: 'Please use commands in the Lore Collector channel 🎴',
@@ -698,7 +909,17 @@ client.on('interactionCreate', async interaction => {
       return;
     }
 
+
+    // Handles interactive Discord buttons like pack reveals and collection paging.
+
     if (interaction.isButton()) {
+
+
+      // =====================================================
+      // Collection Pagination Buttons
+      // Handles Previous/Next page navigation in the collection binder.
+      // =====================================================
+
       if (interaction.customId.startsWith('collection_prev_')) {
         const ownerId = interaction.customId.replace('collection_prev_', '');
 
@@ -779,6 +1000,12 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
+
+      // =====================================================
+      // Collection Pagination Buttons
+      // Handles Previous/Next page navigation in the collection binder.
+      // =====================================================
+
       if (interaction.customId.startsWith('choose_pack_standard_')) {
         const ownerId = interaction.customId.replace('choose_pack_standard_', '');
         await handlePackChoice(interaction, 'standard', ownerId);
@@ -796,6 +1023,12 @@ client.on('interactionCreate', async interaction => {
         await handlePackChoice(interaction, 'mothers', ownerId);
         return;
       }
+
+
+      // =====================================================
+      // Pack Reveal Buttons
+      // Handles revealing cards one-by-one during pack openings.
+      // =====================================================
 
       if (!interaction.customId.startsWith('reveal_pack_')) return;
 
@@ -887,6 +1120,12 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
+
+    // =====================================================
+    // /lore
+    // Explains how The Lore Collector works.
+    // =====================================================
+
     if (interaction.commandName === 'lore') {
       await interaction.deferReply({ ephemeral: true });
 
@@ -916,6 +1155,13 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply({ embeds: [embed] });
     }
+
+
+    // =====================================================
+    // /daily
+    // Gives a daily random card + ink reward.
+    // Also handles first-time premium pack bonuses.
+    // =====================================================
 
     if (interaction.commandName === 'daily') {
       await interaction.deferReply();
@@ -957,7 +1203,7 @@ client.on('interactionCreate', async interaction => {
         });
 
         const embed = new EmbedBuilder()
-          .setTitle(`${rarityEmoji[randomCard.rarity] || '🎴'} ${randomCard.name}`)
+          .setTitle(`${lorcana.rarityEmoji[randomCard.rarity] || '🎴'} ${randomCard.name}`)
           .setDescription(
             `${randomCard.rarity} | ${randomCard.ink} | ${randomCard.set}\n\n${getPullMessage(randomCard, dailyCardIsNew)}\n\n+${DAILY_INK_REWARD} Ink added.\nCurrent balance: **${newBalance} Ink**\n\n🎁 **First check-in bonus:** You also received a free **Premium Pack**!\nClick the button below to reveal it.`
           )
@@ -988,6 +1234,12 @@ client.on('interactionCreate', async interaction => {
       await interaction.editReply({ embeds: [embed] });
     }
 
+
+    // =====================================================
+    // /balance
+    // Displays the user's current ink balance.
+    // =====================================================
+
     if (interaction.commandName === 'balance') {
       await interaction.deferReply({ ephemeral: true });
 
@@ -1001,6 +1253,13 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply(`You currently have **${balance} Ink**.`);
     }
+
+
+    // =====================================================
+    // /pack
+    // Lets users purchase and open packs using ink.
+    // Uses interactive reveal buttons.
+    // =====================================================
 
     if (interaction.commandName === 'pack') {
       await interaction.deferReply();
@@ -1018,6 +1277,9 @@ client.on('interactionCreate', async interaction => {
         `**Standard Pack** — ${STANDARD_PACK_COST} Ink\n3 Common, 2 Uncommon, 1 Rare+\n`,
         `**Premium Pack** — ${PREMIUM_PACK_COST} Ink\n1 Common, 2 Uncommon, 3 boosted Rare+ pulls`
       ];
+
+
+      // Only shows the limited-time Mother's Day pack while the event is active.
 
       if (isMothersDayAvailable()) {
         packDescriptionParts.push(
@@ -1046,6 +1308,13 @@ client.on('interactionCreate', async interaction => {
         components: canAffordAnyPack ? [createPackChoiceButtons(userId, balance)] : []
       });
     }
+
+
+    // =====================================================
+    // /collection
+    // Displays the user's card collection as a visual binder.
+    // Supports pagination buttons.
+    // =====================================================
 
     if (interaction.commandName === 'collection') {
       await interaction.deferReply();
@@ -1084,7 +1353,7 @@ client.on('interactionCreate', async interaction => {
         .filter(Boolean);
 
       collectionDetails.sort((a, b) => {
-        const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
+        const rarityDiff = (lorcana.rarityOrder[b.rarity] || 0) - (lorcana.rarityOrder[a.rarity] || 0);
         if (rarityDiff !== 0) return rarityDiff;
         return a.name.localeCompare(b.name);
       });
@@ -1103,6 +1372,13 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply(reply);
     }
+
+
+    // =====================================================
+    // /dupes
+    // Shows cards the user owns more than once.
+    // Useful for future trading systems.
+    // =====================================================
 
     if (interaction.commandName === 'dupes') {
       await interaction.deferReply();
@@ -1144,7 +1420,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       duplicateDetails.sort((a, b) => {
-        const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
+        const rarityDiff = (lorcana.rarityOrder[b.rarity] || 0) - (lorcana.rarityOrder[a.rarity] || 0);
         if (rarityDiff !== 0) return rarityDiff;
         return b.quantity - a.quantity;
       });
@@ -1168,6 +1444,12 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply({ embeds: [embed] });
     }
+
+
+    // =====================================================
+    // /leaderboard
+    // Displays top collectors or highest ink balances.
+    // =====================================================
 
     if (interaction.commandName === 'leaderboard') {
       await interaction.deferReply();
@@ -1229,3 +1511,31 @@ client.on('interactionCreate', async interaction => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
+// =====================================================
+// Future Architecture Notes
+// =====================================================
+//
+// Planned shared systems:
+// - Move more helper logic into lib/lorcana.js
+// - Shared pack generation between Discord + Twitch
+// - Shared rarity handling
+// - Shared collection rendering
+// - Shared overlay payload generation
+//
+// Planned Twitch features:
+// - Twitch chat pull announcements
+// - OBS/StreamElements overlay support
+// - Twitch ink redeems
+// - Twitch-linked collections
+//
+// Planned gameplay systems:
+// - Trading
+// - Set-specific collection tracking
+// - Event packs
+// - Limited-time drops
+// - Achievements
+//
+// Important:
+// index.js should eventually become mostly Discord-specific logic,
+// while lib/lorcana.js becomes the shared game engine layer.

@@ -28,6 +28,11 @@ require("dotenv").config({ path: ".env.test" });
 const lorcana = require("./lib/lorcana");
 
 
+// Twitch IRC chat client used for sending messages into Twitch chat.
+
+const tmi = require('tmi.js');
+
+
 // Feature flags:
 // Keep these OFF while testing during a live stream.
 // They let us build Twitch chat and overlay features without accidentally posting publicly.
@@ -35,6 +40,26 @@ const lorcana = require("./lib/lorcana");
 const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === "true";
 const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === "true";
 const OVERLAY_MODE = process.env.OVERLAY_MODE || "log";
+
+// =====================================================
+// Twitch Chat Client
+// Sends Lorcana pull announcements into Twitch chat.
+// Uses a separate OAuth token from EventSub.
+// =====================================================
+
+const twitchChatClient = new tmi.Client({
+  options: {
+    debug: true
+  },
+
+  identity: {
+    username: process.env.TWITCH_CHAT_USERNAME,
+    password: process.env.TWITCH_CHAT_OAUTH
+  },
+
+  channels: [process.env.TWITCH_CHAT_CHANNEL]
+});
+
 
 
 function getSetFromRewardTitle(rewardTitle) {
@@ -77,8 +102,8 @@ async function postToTwitchChat(message) {
     return;
   }
 
-  // Twitch chat posting will be wired up after stream.
-  console.log("Twitch chat enabled, but send logic is not connected yet:", message);
+  // Sends the finalized Lorcana pull message into Twitch chat.
+  await twitchChatClient.say(process.env.TWITCH_CHAT_CHANNEL, message);
 }
 
 async function handleOverlayData(data) {
@@ -228,8 +253,16 @@ await postToTwitchChat(
   });
 }
 
-discordClient.once("ready", () => {
+discordClient.once("ready", async () => {
   console.log(`Discord logged in as ${discordClient.user.tag}`);
+
+  // Connects to Twitch chat only when chat posting is enabled.
+  // This keeps testing safe when TWITCH_CHAT_ENABLED=false.
+  if (TWITCH_CHAT_ENABLED) {
+    await twitchChatClient.connect();
+    console.log("Twitch chat client connected.");
+  }
+
   connectToTwitchEventSub();
 });
 
