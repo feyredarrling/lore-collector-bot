@@ -381,6 +381,13 @@ function createPackChoiceButtons(userId, balance) {
       .setDisabled(balance < PREMIUM_PACK_COST)
   ];
 
+  buttons.push(
+  new ButtonBuilder()
+    .setCustomId(`save_ink_${userId}`)
+    .setLabel('Save My Ink')
+    .setStyle(ButtonStyle.Secondary)
+  );
+
  
   return new ActionRowBuilder().addComponents(buttons);
 }
@@ -906,6 +913,26 @@ client.on('interactionCreate', async interaction => {
 
         return;
       }
+
+      if (interaction.customId.startsWith('save_ink_')) {
+       const ownerId = interaction.customId.replace('save_ink_', '');
+
+       if (interaction.user.id !== ownerId) {
+        await interaction.reply({
+          content: 'This is not your Ink stash, sneaky little collector 👀',
+          ephemeral: true
+        });
+     return;
+    }
+
+    await interaction.update({
+      content: 'Your Ink has been safely tucked away for another day 🎴',
+      embeds: [],
+      components: []
+    });
+
+    return;
+   }
 
       if (interaction.customId.startsWith('choose_pack_standard_')) {
         const ownerId = interaction.customId.replace('choose_pack_standard_', '');
