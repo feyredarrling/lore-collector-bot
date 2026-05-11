@@ -90,6 +90,9 @@ const commands = [
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
   new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector'),
   new SlashCommandBuilder()
+  .setName('mothersday')
+  .setDescription('Claim your free Mother’s Day Pack'),
+  new SlashCommandBuilder()
   .setName('announcement-set')
   .setDescription('Admin only: set a rotating channel announcement')
   .addStringOption(option =>
@@ -279,16 +282,7 @@ const rarityOrder = {
 };
 
 function isMothersDayAvailable() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: EVENT_TIMEZONE,
-    month: 'numeric',
-    day: 'numeric'
-  }).formatToParts(new Date());
-
-  const month = Number(parts.find(part => part.type === 'month')?.value);
-  const day = Number(parts.find(part => part.type === 'day')?.value);
-
-  return month === 5 && day === 9;
+  return false;
 }
 
 function getCardById(cardId) {
@@ -387,16 +381,7 @@ function createPackChoiceButtons(userId, balance) {
       .setDisabled(balance < PREMIUM_PACK_COST)
   ];
 
-  if (isMothersDayAvailable()) {
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId(`choose_pack_mothers_${userId}`)
-        .setLabel(`Mother's Day Pack - ${MOTHERS_DAY_PACK_COST} Ink`)
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(balance < MOTHERS_DAY_PACK_COST)
-    );
-  }
-
+ 
   return new ActionRowBuilder().addComponents(buttons);
 }
 
@@ -934,12 +919,6 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      if (interaction.customId.startsWith('choose_pack_mothers_')) {
-        const ownerId = interaction.customId.replace('choose_pack_mothers_', '');
-        await handlePackChoice(interaction, 'mothers', ownerId);
-        return;
-      }
-
       if (!interaction.customId.startsWith('reveal_pack_')) return;
 
       const ownerId = interaction.customId.replace('reveal_pack_', '');
@@ -1140,6 +1119,62 @@ if (interaction.commandName === 'announcement-status') {
     `Interval: Every ${data.interval_hours} hour(s)\n` +
     `Ends: ${data.end_at || 'No end date'}`
   );
+
+  return;
+}
+
+if (interaction.commandName === 'mothersday') {
+  await interaction.deferReply();
+
+  const userId = interaction.user.id;
+  const username = interaction.user.username;
+
+  await ensureUser(userId, username);
+
+  const { data: existingClaim } = await supabase
+    .from('special_claims')
+    .select('*')
+    .eq('discord_user_id', userId)
+    .eq('claim_type', 'mothers_day_2026')
+    .maybeSingle();
+
+  if (existingClaim) {
+    await interaction.editReply(
+      'You already claimed your free Mother’s Day Pack 🎴'
+    );
+    return;
+  }
+
+  const pulledCards = createMothersDayPack();
+  const packItems = await buildPackItems(userId, pulledCards);
+
+  await addPackItemsToCollection(userId, username, packItems);
+
+  await supabase
+    .from('special_claims')
+    .insert({
+      discord_user_id: userId,
+      claim_type: 'mothers_day_2026'
+    });
+
+  pendingPacks.set(userId, {
+    items: packItems,
+    index: 0
+  });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🌸 Free Mother’s Day Pack')
+    .setDescription(
+      `Sorry the event pack did not work properly over the weekend.\n\n` +
+      `Enjoy a free Mother’s Day Pack on us 💖\n\n` +
+      `Click below to reveal your cards!`
+    )
+    .setColor(0xff8fb1);
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [createRevealButton(userId)]
+  });
 
   return;
 }
