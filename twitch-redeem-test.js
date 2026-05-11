@@ -1,6 +1,37 @@
+/**
+ * Twitch Redeem Test Listener
+ *
+ * Purpose:
+ * - Listens for Twitch Channel Point redeems in the TEST environment.
+ * - Pulls a Lorcana card from a selected set.
+ * - Writes card/collection updates to the TEST Supabase project.
+ * - Posts results to the TEST Discord channel using the TEST Discord bot.
+ *
+ * Safety:
+ * - This file should only run with .env.test.
+ * - BOT_MODE must be "test" or the script will stop.
+ * - Twitch chat and overlay output are controlled by feature flags.
+ *
+ * Current flow:
+ * Twitch Channel Point Redeem
+ * → EventSub WebSocket
+ * → identify reward/set
+ * → pull random card
+ * → add/update TEST collection
+ * → post TEST Discord embed
+ * → prepare Twitch chat + overlay data if enabled
+ */
+
+
 require("dotenv").config({ path: ".env.test" });
 
 const lorcana = require("./lib/lorcana");
+
+
+// Feature flags:
+// Keep these OFF while testing during a live stream.
+// They let us build Twitch chat and overlay features without accidentally posting publicly.
+
 const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === "true";
 const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === "true";
 const OVERLAY_MODE = process.env.OVERLAY_MODE || "log";

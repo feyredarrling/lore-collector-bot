@@ -1,3 +1,33 @@
+/**
+ * The Lore Collector - Live Discord Bot
+ *
+ * Purpose:
+ * Main Discord bot for Lorcana card collecting.
+ *
+ * Handles:
+ * - /daily card claims
+ * - /balance
+ * - /pack
+ * - /collection binder
+ * - /dupes
+ * - /leaderboard
+ * - pack reveal buttons
+ *
+ * Environment:
+ * - Production normally runs on Railway using .env.
+ * - Local testing can run with NODE_ENV=test to load .env.test.
+ *
+ * Safety Notes:
+ * - Do not commit .env or .env.test.
+ * - ALLOWED_CHANNEL_IDS controls where commands can run.
+ * - Supabase keys decide whether the bot writes to live or test data.
+ *
+ * Shared Logic:
+ * Reusable Lorcana helpers live in lib/lorcana.js.
+ */
+
+
+
 require('dotenv').config({
   path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env'
 });
