@@ -1,7 +1,9 @@
 require("dotenv").config({ path: ".env.test" });
 
 const lorcana = require("./lib/lorcana");
-
+const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === "true";
+const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === "true";
+const OVERLAY_MODE = process.env.OVERLAY_MODE || "log";
 
 
 function getSetFromRewardTitle(rewardTitle) {
@@ -36,6 +38,30 @@ async function postToDiscord(payload) {
   );
 
   await channel.send(payload);
+}
+
+async function postToTwitchChat(message) {
+  if (!TWITCH_CHAT_ENABLED) {
+    console.log("Twitch chat disabled. Would have posted:", message);
+    return;
+  }
+
+  // Twitch chat posting will be wired up after stream.
+  console.log("Twitch chat enabled, but send logic is not connected yet:", message);
+}
+
+async function handleOverlayData(data) {
+  if (!OVERLAY_ENABLED) {
+    console.log("Overlay disabled.");
+    return;
+  }
+
+  if (OVERLAY_MODE === "log") {
+    console.log("Overlay Payload:", JSON.stringify(data, null, 2));
+    return;
+  }
+
+  console.log(`Unknown overlay mode: ${OVERLAY_MODE}`);
 }
 
 async function subscribeToChannelPointRedeems(sessionId) {
@@ -96,12 +122,17 @@ function connectToTwitchEventSub() {
 
       console.log("Redeem received:", viewerName, rewardTitle);
 
-      const setName = getSetFromRewardTitle(rewardTitle);
+      const isLorcanaTestReward = rewardTitle.startsWith("TEST Pull:");
+
+if (!isLorcanaTestReward) {
+  console.log(`Ignoring non-Lorcana reward: ${rewardTitle}`);
+  return;
+}
+
+const setName = getSetFromRewardTitle(rewardTitle);
 
 if (!setName) {
-  await postToDiscord(
-    `❌ Unknown set for reward: ${rewardTitle}`
-  );
+  console.log(`Ignoring unknown Lorcana test reward: ${rewardTitle}`);
   return;
 }
 
@@ -135,7 +166,25 @@ const embed = lorcana.createSingleCardEmbed({
   titlePrefix: 'Twitch Pull: '
 });
 
+const overlayData = lorcana.createOverlayPullData({
+  username: viewerName,
+  card: pulledCard,
+  setName,
+  isNew: addResult.isNew,
+  quantity: addResult.quantity
+});
+
+await handleOverlayData(overlayData);
+
 await postToDiscord({ embeds: [embed] });
+
+await postToTwitchChat(
+  lorcana.createTwitchPullMessage({
+    username: viewerName,
+    card: pulledCard,
+    setName
+  })
+);
     }
   });
 
