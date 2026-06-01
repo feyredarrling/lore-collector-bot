@@ -2,9 +2,7 @@
 
 ## Must Do Next
 
-- Fix Twitch EventSub credentials for the new Twitch application.
-- Generate a valid EventSub access token that matches the current `TWITCH_CLIENT_ID`.
-- Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe test window.
+- Test live Twitch redeems during a safe off-stream window.
 - Test linked Twitch redeem flow:
   - Twitch redeem.
   - Lookup linked account.
@@ -24,9 +22,11 @@
 
 ## Bugs And Risks
 
-- EventSub is currently disabled with `TWITCH_EVENTSUB_ENABLED=false`.
-- Current EventSub error: `Invalid OAuth token`.
+- EventSub remains disabled by default with `TWITCH_EVENTSUB_ENABLED=false`.
+- EventSub credentials are repaired for `.env.test`, but the token is time-limited and may need regeneration before the next test window.
+- Previous EventSub error was `Invalid OAuth token`.
 - OAuth linking works independently from EventSub.
+- EventSub subscription smoke test passed, but no live redeems have been tested yet.
 - Merge logic exists but has not been tested with large Twitch collections.
 - Repeated linking and unlinking needs to be checked so it does not cause duplicate merges.
 - Twitch pulls after linking need to be verified so they route to the Discord collection.
@@ -97,6 +97,8 @@
 
 - Production uses `.env`, production Supabase, and production Discord bot resources.
 - Testing uses `.env.test`, test Supabase, test Discord bot, and test Discord channel.
+- `.env.test` uses local port `3001` for the Express callback because port `3000` is used by another local bot.
+- The Twitch Developer Console app includes `http://localhost:3001/auth/twitch/callback`.
 
 ### Account Linking
 
@@ -263,4 +265,3 @@ Future possibilities:
 - Single streamer bot only?
 - Multi-streamer support?
 - Commercial/SaaS offering?
-

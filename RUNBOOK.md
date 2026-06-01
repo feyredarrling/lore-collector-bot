@@ -46,7 +46,7 @@ The Express server runs from `index.js`.
 Default port:
 
 ```text
-3000
+3001 (.env.test)
 ```
 
 Health route:
@@ -64,10 +64,16 @@ GET /auth/twitch/callback
 Local callback URL:
 
 ```text
-http://localhost:3000/auth/twitch/callback
+http://localhost:3001/auth/twitch/callback
 ```
 
 OAuth link requests use a short-lived in-memory nonce. If the bot restarts after a user clicks the Discord link but before Twitch redirects back, the callback asks the user to return to Discord and try again.
+
+The Twitch Developer Console app must include this exact test callback URL:
+
+```text
+http://localhost:3001/auth/twitch/callback
+```
 
 ## Safe Testing While Live
 
@@ -126,11 +132,21 @@ Twitch merge test passed.
 
 Use this when fixing or testing Twitch Channel Point redeem listening.
 
-Current blocker:
+Previous blocker:
 
 ```text
 Invalid OAuth token
 ```
+
+Status as of 2026-06-01:
+
+- `.env.test` has a repaired broadcaster user access token.
+- Validation passed for the current `TWITCH_CLIENT_ID`.
+- Validation passed for the configured `TWITCH_BROADCASTER_ID`.
+- Validation confirmed `channel:read:redemptions`.
+- A test-mode EventSub subscription smoke test succeeded.
+- Live Twitch redeem validation is still pending.
+- `TWITCH_EVENTSUB_ENABLED=false` should remain the default outside a safe redeem test window.
 
 The bot uses `TWITCH_ACCESS_TOKEN` to create this EventSub subscription:
 
@@ -182,6 +198,12 @@ Authorization URL shape:
 
 ```text
 https://id.twitch.tv/oauth2/authorize?client_id=TWITCH_CLIENT_ID&redirect_uri=TWITCH_REDIRECT_URI&response_type=code&scope=channel:read:redemptions
+```
+
+For the current test environment, `TWITCH_REDIRECT_URI` is:
+
+```text
+http://localhost:3001/auth/twitch/callback
 ```
 
 After Twitch redirects back with `code=...`, exchange the code server-side with:

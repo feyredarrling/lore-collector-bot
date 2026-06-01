@@ -3,8 +3,7 @@
 ## Highest Priority
 
 - Review the current Twitch OAuth and EventSub diff for bugs.
-- Fix EventSub credentials for the current Twitch application.
-- Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe redeem test window.
+- Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe off-stream redeem test window.
 - Test Twitch redeem behavior for a linked account.
 - Test Twitch redeem behavior for an unlinked account.
 - Test merge behavior when an unlinked Twitch user links later.
@@ -53,3 +52,7 @@
 - Add `test-twitch-merge.js` for Twitch collection merge quantities and double-merge protection.
 - Harden Twitch OAuth `state` with short-lived random nonces.
 - Document required Twitch OAuth scopes and EventSub token generation steps.
+- Fix EventSub credentials for the current Twitch application in `.env.test`.
+- Move the `.env.test` local callback to port `3001`.
+- Add the port `3001` callback URL to the Twitch Developer Console app.
+- Verify EventSub subscription creation in test mode without live redeems.

@@ -69,10 +69,13 @@ Completed:
 - `test-twitch-merge.js` covers Twitch-held card merge quantities and confirms a second merge does not duplicate cards.
 - Twitch OAuth `state` now uses a short-lived random nonce instead of exposing the Discord user id directly.
 - `RUNBOOK.md` now documents EventSub token scope, validation, regeneration, and safe test steps.
+- EventSub credentials were repaired for `.env.test` on 2026-06-01.
+- `.env.test` now uses local callback port `3001` to avoid the other local bot on port `3000`.
+- The Twitch Developer Console app has `http://localhost:3001/auth/twitch/callback` registered.
+- EventSub subscription smoke test passed in test mode: Twitch accepted the Channel Point redemption subscription.
 
 Pending:
 
-- EventSub credential repair.
 - Live Twitch redeem validation.
 - Production Supabase `linked_accounts.discord_user_id` duplicate check and unique index.
 - Transactional Supabase merge RPC for fully atomic Twitch-to-Discord collection merging.
@@ -142,7 +145,7 @@ GET /auth/twitch/callback
 Local callback:
 
 ```text
-http://localhost:3000/auth/twitch/callback
+http://localhost:3001/auth/twitch/callback
 ```
 
 The current success page is plain text.
@@ -169,14 +172,20 @@ Current intended redeem behavior:
 
 ## Current Blocker
 
-EventSub is pending.
+EventSub credential repair is complete for `.env.test`.
 
-`TWITCH_EVENTSUB_ENABLED=false` because OAuth credentials changed and the EventSub token is no longer valid.
+`TWITCH_EVENTSUB_ENABLED=false` remains intentional because live redeem validation is still pending and should only happen during a safe test window.
 
-Known previous error:
+Previous blocker:
 
 ```text
 Invalid OAuth token
 ```
 
-The OAuth linking token flow works. The EventSub redeem token still needs to be regenerated for the correct Twitch application.
+Current verified state:
+
+- `TWITCH_ACCESS_TOKEN` validates against the current `TWITCH_CLIENT_ID`.
+- Token user matches `TWITCH_BROADCASTER_ID` for `feyredarrling`.
+- Token has `channel:read:redemptions`.
+- A test-mode EventSub WebSocket subscription succeeded.
+- No live redeems have been tested yet because the owner was live.
