@@ -65,7 +65,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
-  AttachmentBuilder
+  AttachmentBuilder,
+  PermissionsBitField
 } = require('discord.js');
 
 
@@ -159,6 +160,20 @@ const cards = JSON.parse(fs.readFileSync('./data/cards.json', 'utf8'));
 const mothersDayPool = cards.filter(card =>
   MOTHERS_DAY_CARD_NAMES.includes(card.name)
 );
+
+const COLLECTION_SET_CHOICES = [...new Set(cards.map(card => card.set).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b));
+
+const COLLECTION_RARITY_CHOICES = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Super Rare',
+  'Epic',
+  'Legendary',
+  'Enchanted',
+  'Promo'
+];
 
 
 // Supabase database connection.
@@ -355,13 +370,75 @@ const pendingTwitchLinks = new Map();
 const commands = [
   new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink for this server'),
   new SlashCommandBuilder().setName('balance').setDescription('Check your Ink balance'),
-  new SlashCommandBuilder().setName('collection').setDescription('View your Lorcana collection binder'),
+  new SlashCommandBuilder()
+    .setName('collection')
+    .setDescription('View your Lorcana collection binder')
+    .addStringOption(option =>
+      option
+        .setName('set')
+        .setDescription('Show only one Lorcana set')
+        .setRequired(false)
+        .addChoices(
+          { name: 'All Sets', value: 'all' },
+          ...COLLECTION_SET_CHOICES.map(setName => ({
+            name: setName,
+            value: setName
+          }))
+        )
+    )
+    .addStringOption(option =>
+      option
+        .setName('rarity')
+        .setDescription('Show only one card rarity')
+        .setRequired(false)
+        .addChoices(
+          { name: 'All Rarities', value: 'all' },
+          ...COLLECTION_RARITY_CHOICES.map(rarity => ({
+            name: rarity,
+            value: rarity
+          }))
+        )
+    ),
   new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
-  new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector')
-// Discord requires slash commands to be converted to JSON before registration.
+  new SlashCommandBuilder().setName('lore').setDescription('How to play The Lore Collector'),
+  new SlashCommandBuilder()
+  .setName('mothersday')
+  .setDescription('Claim your free Mother’s Day Pack'),
+  new SlashCommandBuilder()
+  .setName('announcement-set')
+  .setDescription('Admin only: set a rotating channel announcement')
+  .addStringOption(option =>
+    option
+      .setName('message')
+      .setDescription('Announcement message')
+      .setRequired(true)
+  )
+  .addIntegerOption(option =>
+    option
+      .setName('interval_hours')
+      .setDescription('How often to repost the announcement')
+      .setRequired(true)
+  )
+  .addStringOption(option =>
+    option
+      .setName('end_at')
+      .setDescription('When to stop, like 2026-05-10 00:00')
+      .setRequired(false)
+  ),
+
+new SlashCommandBuilder()
+  .setName('announcement-stop')
+  .setDescription('Admin only: stop the rotating announcement'),
+
+new SlashCommandBuilder()
+  .setName('announcement-status')
+  .setDescription('Admin only: view the active rotating announcement')
 ].map(command => command.toJSON());
+
+
+// Discord requires slash commands to be converted to JSON before registration.
 
 
 // REST client used to register/update slash commands with Discord.
@@ -385,8 +462,126 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   }
 })();
 
+const lastAnnouncementMessages = new Map();
+
+async function processAnnouncements() {
+
+  const { data: announcement, error } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('id', 'global')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load announcement:', error);
+    return;
+  }
+
+  if (!announcement || !announcement.is_active) {
+    return;
+  }
+
+  // Stop if expired
+  if (
+    announcement.end_at &&
+    new Date() > new Date(announcement.end_at)
+  ) {
+    await supabase
+      .from('announcements')
+      .update({
+        is_active: false
+      })
+      .eq('id', 'global');
+
+    return;
+  }
+
+  const now = new Date();
+
+  const lastPosted = announcement.last_posted_at
+    ? new Date(announcement.last_posted_at)
+    : null;
+
+  const intervalMs =
+    announcement.interval_hours * 60 * 60 * 1000;
+
+  const shouldPost =
+    !lastPosted ||
+    now - lastPosted >= intervalMs;
+
+  if (!shouldPost) {
+    return;
+  }
+
+  for (const channelId of ALLOWED_CHANNELS) {
+
+    try {
+
+      const channel = await client.channels.fetch(channelId);
+
+      if (!channel || !channel.isTextBased()) {
+        continue;
+      }
+
+      const { data: savedMessage } = await supabase
+  .from('announcement_messages')
+  .select('message_id')
+  .eq('announcement_id', announcement.id)
+  .eq('channel_id', channelId)
+  .maybeSingle();
+
+if (savedMessage?.message_id) {
+  try {
+    const previousMessage = await channel.messages.fetch(savedMessage.message_id);
+    await previousMessage.delete();
+  } catch {
+    // Ignore if the old message was already deleted
+  }
+}
+
+const newMessage = await channel.send({
+  content: announcement.message,
+  components: [createAnnouncementButtons()]
+});
+
+await supabase
+  .from('announcement_messages')
+  .upsert({
+    announcement_id: announcement.id,
+    channel_id: channelId,
+    message_id: newMessage.id
+  });
+
+    } catch (error) {
+
+      console.error(
+        `Failed posting announcement in ${channelId}:`,
+        error
+      );
+
+    }
+
+  }
+
+  await supabase
+    .from('announcements')
+    .update({
+      last_posted_at: now.toISOString()
+    })
+    .eq('id', 'global');
+
+}
+
 client.once('clientReady', async () => {
+
   console.log(`Logged in as ${client.user.tag}`);
+
+  processAnnouncements();
+
+  setInterval(
+    processAnnouncements,
+    5 * 60 * 1000
+  );
 
   if (process.env.BOT_MODE === 'test') {
     if (TWITCH_CHAT_ENABLED) {
@@ -706,16 +901,7 @@ function connectToTwitchEventSub() {
 // Uses a fixed timezone so the event activates consistently for everyone.
 
 function isMothersDayAvailable() {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: EVENT_TIMEZONE,
-    month: 'numeric',
-    day: 'numeric'
-  }).formatToParts(new Date());
-
-  const month = Number(parts.find(part => part.type === 'month')?.value);
-  const day = Number(parts.find(part => part.type === 'day')?.value);
-
-  return month === 5 && day === 9;
+  return false;
 }
 
 
@@ -890,17 +1076,37 @@ function createPackChoiceButtons(userId, balance) {
       .setDisabled(balance < PREMIUM_PACK_COST)
   ];
 
-  if (isMothersDayAvailable()) {
-    buttons.push(
-      new ButtonBuilder()
-        .setCustomId(`choose_pack_mothers_${userId}`)
-        .setLabel(`Mother's Day Pack - ${MOTHERS_DAY_PACK_COST} Ink`)
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(balance < MOTHERS_DAY_PACK_COST)
-    );
-  }
+  buttons.push(
+  new ButtonBuilder()
+    .setCustomId(`save_ink_${userId}`)
+    .setLabel('Save My Ink')
+    .setStyle(ButtonStyle.Secondary)
+  );
+
 
   return new ActionRowBuilder().addComponents(buttons);
+}
+
+function createAnnouncementButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('announcement_daily')
+      .setLabel('Daily')
+      .setEmoji('🎴')
+      .setStyle(ButtonStyle.Primary),
+
+    new ButtonBuilder()
+      .setCustomId('announcement_balance')
+      .setLabel('Balance')
+      .setEmoji('💰')
+      .setStyle(ButtonStyle.Secondary),
+
+    new ButtonBuilder()
+      .setCustomId('announcement_pack')
+      .setLabel('Pack')
+      .setEmoji('🎁')
+      .setStyle(ButtonStyle.Success)
+  );
 }
 
 
@@ -1237,6 +1443,68 @@ function formatLeaderboardList(data, label) {
     .join('\n');
 }
 
+function getCollectionFilterLabel(selectedSet) {
+  return selectedSet ? selectedSet : 'All Sets';
+}
+
+function getCollectionRarityLabel(selectedRarity) {
+  return selectedRarity ? selectedRarity : 'All Rarities';
+}
+
+function getSelectedCollectionSet(interaction) {
+  const selectedSet = interaction.options.getString('set');
+
+  if (!selectedSet || selectedSet === 'all') {
+    return null;
+  }
+
+  if (!COLLECTION_SET_CHOICES.includes(selectedSet)) {
+    return null;
+  }
+
+  return selectedSet;
+}
+
+function getSelectedCollectionRarity(interaction) {
+  const selectedRarity = interaction.options.getString('rarity');
+
+  if (!selectedRarity || selectedRarity === 'all') {
+    return null;
+  }
+
+  if (!COLLECTION_RARITY_CHOICES.includes(selectedRarity)) {
+    return null;
+  }
+
+  return selectedRarity;
+}
+
+function buildCollectionDetails(ownedCards, selectedSet = null, selectedRarity = null) {
+  return ownedCards
+    .map(ownedCard => {
+      const cardInfo = getCardById(ownedCard.card_id);
+      if (!cardInfo || !cardInfo.image) return null;
+      if (selectedSet && cardInfo.set !== selectedSet) return null;
+      if (selectedRarity && cardInfo.rarity !== selectedRarity) return null;
+
+      return {
+        id: ownedCard.card_id,
+        name: cardInfo.name,
+        rarity: cardInfo.rarity || 'Unknown',
+        ink: cardInfo.ink || 'Unknown',
+        set: cardInfo.set || 'Unknown',
+        image: cardInfo.image,
+        quantity: ownedCard.quantity
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const rarityDiff = (lorcana.rarityOrder[b.rarity] || 0) - (lorcana.rarityOrder[a.rarity] || 0);
+      if (rarityDiff !== 0) return rarityDiff;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 
 // Calculates which cards belong on a specific collection binder page.
 // Handles pagination logic for the /collection image viewer.
@@ -1258,11 +1526,17 @@ function getCollectionPageData(collectionDetails, page) {
   };
 }
 
-
 // Builds the full Discord response for a collection binder page.
 // Generates the binder image, page navigation buttons, and summary text.
 
-async function createCollectionReply(userId, username, collectionDetails, page) {
+async function createCollectionReply(
+  userId,
+  username,
+  collectionDetails,
+  page,
+  selectedSet = null,
+  selectedRarity = null
+) {
   const pageData = getCollectionPageData(collectionDetails, page);
   const imageBuffer = await createCollectionImage(pageData.pageCards);
 
@@ -1271,6 +1545,7 @@ async function createCollectionReply(userId, username, collectionDetails, page) 
   });
 
   const content =
+    `Set: **${getCollectionFilterLabel(selectedSet)}** | Rarity: **${getCollectionRarityLabel(selectedRarity)}**\n` +
     `Here is your Lorcana binder, ${username} 🎴\n` +
     `Total Cards: **${pageData.totalCards}** • Unique Cards: **${pageData.uniqueCards}**\n` +
     `Page **${pageData.page + 1}** of **${pageData.totalPages}**`;
@@ -1401,6 +1676,8 @@ async function handlePackChoice(interaction, packType, ownerId) {
 
 client.on('interactionCreate', async interaction => {
   try {
+    let commandName = interaction.isChatInputCommand() ? interaction.commandName : null;
+
     if (ALLOWED_CHANNELS.length > 0 && !ALLOWED_CHANNELS.includes(interaction.channelId)) {
       // Handles slash commands like /daily, /pack, /collection, etc.
 
@@ -1442,6 +1719,16 @@ client.on('interactionCreate', async interaction => {
       // Handles Previous/Next page navigation in the collection binder.
       // =====================================================
 
+      if (interaction.customId === 'announcement_daily') {
+        commandName = 'daily';
+      } else if (interaction.customId === 'announcement_balance') {
+        commandName = 'balance';
+      } else if (interaction.customId === 'announcement_pack') {
+        commandName = 'pack';
+      }
+
+      if (!commandName) {
+
       if (interaction.customId.startsWith('collection_prev_')) {
         const ownerId = interaction.customId.replace('collection_prev_', '');
 
@@ -1471,7 +1758,9 @@ client.on('interactionCreate', async interaction => {
           ownerId,
           interaction.user.username,
           collectionData.cards,
-          collectionData.page
+          collectionData.page,
+          collectionData.selectedSet,
+          collectionData.selectedRarity
         );
 
         await interaction.editReply({
@@ -1511,7 +1800,9 @@ client.on('interactionCreate', async interaction => {
           ownerId,
           interaction.user.username,
           collectionData.cards,
-          collectionData.page
+          collectionData.page,
+          collectionData.selectedSet,
+          collectionData.selectedRarity
         );
 
         await interaction.editReply({
@@ -1522,11 +1813,25 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
+      if (interaction.customId.startsWith('save_ink_')) {
+       const ownerId = interaction.customId.replace('save_ink_', '');
 
-      // =====================================================
-      // Collection Pagination Buttons
-      // Handles Previous/Next page navigation in the collection binder.
-      // =====================================================
+       if (interaction.user.id !== ownerId) {
+        await interaction.reply({
+          content: 'This is not your Ink stash, sneaky little collector 👀',
+          ephemeral: true
+        });
+     return;
+    }
+
+    await interaction.update({
+      content: 'Your Ink has been safely tucked away for another day 🎴',
+      embeds: [],
+      components: []
+    });
+
+    return;
+   }
 
       if (interaction.customId.startsWith('choose_pack_standard_')) {
         const ownerId = interaction.customId.replace('choose_pack_standard_', '');
@@ -1639,8 +1944,178 @@ client.on('interactionCreate', async interaction => {
 
       return;
     }
+    }
 
-    if (!interaction.isChatInputCommand()) return;
+       if (!commandName) return;
+
+    // =========================
+// ANNOUNCEMENT ADMIN COMMANDS
+// =========================
+
+if (
+  commandName === 'announcement-set' ||
+  commandName === 'announcement-stop' ||
+  commandName === 'announcement-status'
+) {
+
+  if (
+    !interaction.member.permissions.has(
+      PermissionsBitField.Flags.Administrator
+    )
+  ) {
+    await interaction.reply({
+      content: 'Only server admins can use announcement commands.',
+      ephemeral: true
+    });
+
+    return;
+  }
+
+}
+
+// SET ANNOUNCEMENT
+if (commandName === 'announcement-set') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const message = interaction.options.getString('message');
+  const intervalHours = interaction.options.getInteger('interval_hours');
+  const endAt = interaction.options.getString('end_at');
+
+  const parsedEndAt = endAt
+    ? new Date(endAt).toISOString()
+    : null;
+
+  const { error } = await supabase
+    .from('announcements')
+    .upsert({
+      id: 'global',
+      message,
+      interval_hours: intervalHours,
+      end_at: parsedEndAt,
+      is_active: true,
+      last_posted_at: null,
+      created_by: interaction.user.id,
+      updated_at: new Date().toISOString()
+    });
+
+  if (error) throw error;
+
+  await interaction.editReply(
+    '✅ Rotating announcement updated successfully.'
+  );
+
+  return;
+}
+
+// STOP ANNOUNCEMENT
+if (commandName === 'announcement-stop') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { error } = await supabase
+    .from('announcements')
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', 'global');
+
+  if (error) throw error;
+
+  await interaction.editReply(
+    '🛑 Rotating announcement stopped.'
+  );
+
+  return;
+}
+
+// STATUS
+if (commandName === 'announcement-status') {
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const { data, error } = await supabase
+    .from('announcements')
+    .select('*')
+    .eq('id', 'global')
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data || !data.is_active) {
+    await interaction.editReply(
+      'No active rotating announcement.'
+    );
+
+    return;
+  }
+
+  await interaction.editReply(
+    `📢 Active Announcement\n\n` +
+    `Message:\n${data.message}\n\n` +
+    `Interval: Every ${data.interval_hours} hour(s)\n` +
+    `Ends: ${data.end_at || 'No end date'}`
+  );
+
+  return;
+}
+
+if (commandName === 'mothersday') {
+  await interaction.deferReply();
+
+  const userId = interaction.user.id;
+  const username = interaction.user.username;
+
+  await ensureUser(userId, username);
+
+  const { data: existingClaim } = await supabase
+    .from('special_claims')
+    .select('*')
+    .eq('discord_user_id', userId)
+    .eq('claim_type', 'mothers_day_2026')
+    .maybeSingle();
+
+  if (existingClaim) {
+    await interaction.editReply(
+      'You already claimed your free Mother’s Day Pack 🎴'
+    );
+    return;
+  }
+
+  const pulledCards = createMothersDayPack();
+  const packItems = await buildPackItems(userId, pulledCards);
+
+  await addPackItemsToCollection(userId, username, packItems);
+
+  await supabase
+    .from('special_claims')
+    .insert({
+      discord_user_id: userId,
+      claim_type: 'mothers_day_2026'
+    });
+
+  pendingPacks.set(userId, {
+    items: packItems,
+    index: 0
+  });
+
+  const embed = new EmbedBuilder()
+    .setTitle('🌸 Free Mother’s Day Pack')
+    .setDescription(
+      `Sorry the event pack did not work properly over the weekend.\n\n` +
+      `Enjoy a free Mother’s Day Pack on us 💖\n\n` +
+      `Click below to reveal your cards!`
+    )
+    .setColor(0xff8fb1);
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [createRevealButton(userId)]
+  });
+
+  return;
+}
 
 
     // =====================================================
@@ -1648,7 +2123,7 @@ client.on('interactionCreate', async interaction => {
     // Explains how The Lore Collector works.
     // =====================================================
 
-    if (interaction.commandName === 'lore') {
+    if (commandName === 'lore') {
       await interaction.deferReply({ ephemeral: true });
 
       const embed = new EmbedBuilder()
@@ -1685,7 +2160,7 @@ client.on('interactionCreate', async interaction => {
     // Also handles first-time premium pack bonuses.
     // =====================================================
 
-    if (interaction.commandName === 'daily') {
+    if (commandName === 'daily') {
       await interaction.deferReply();
 
       const userId = interaction.user.id;
@@ -1740,6 +2215,7 @@ client.on('interactionCreate', async interaction => {
           components: [createRevealButton(userId, false, 'Reveal Free Premium Pack')]
         });
 
+
         return;
       }
 
@@ -1754,6 +2230,19 @@ client.on('interactionCreate', async interaction => {
       );
 
       await interaction.editReply({ embeds: [embed] });
+if (randomCard.rarity === 'Enchanted') {
+
+  await interaction.followUp(
+    `🚨 ${interaction.user.username} pulled an ENCHANTED daily card!\n🌈 **ENCHANTED:** ${randomCard.name}`
+  );
+
+} else if (randomCard.rarity === 'Legendary') {
+
+  await interaction.followUp(
+    `🚨 ${interaction.user.username} pulled a LEGENDARY daily card!\n💎 **LEGENDARY:** ${randomCard.name}`
+  );
+
+}
     }
 
 
@@ -1762,7 +2251,7 @@ client.on('interactionCreate', async interaction => {
     // Displays the user's current ink balance.
     // =====================================================
 
-    if (interaction.commandName === 'balance') {
+    if (commandName === 'balance') {
       await interaction.deferReply({ ephemeral: true });
 
       const userId = interaction.user.id;
@@ -1801,7 +2290,7 @@ client.on('interactionCreate', async interaction => {
     // Uses interactive reveal buttons.
     // =====================================================
 
-    if (interaction.commandName === 'pack') {
+    if (commandName === 'pack') {
       await interaction.deferReply();
 
       const userId = interaction.user.id;
@@ -1856,10 +2345,12 @@ client.on('interactionCreate', async interaction => {
     // Supports pagination buttons.
     // =====================================================
 
-    if (interaction.commandName === 'collection') {
+    if (commandName === 'collection') {
       await interaction.deferReply();
 
       const userId = interaction.user.id;
+      const selectedSet = getSelectedCollectionSet(interaction);
+      const selectedRarity = getSelectedCollectionRarity(interaction);
 
       const { data: ownedCards, error } = await supabase
         .from('user_cards')
@@ -1875,39 +2366,29 @@ client.on('interactionCreate', async interaction => {
         return;
       }
 
-      const collectionDetails = ownedCards
-        .map(ownedCard => {
-          const cardInfo = getCardById(ownedCard.card_id);
-          if (!cardInfo || !cardInfo.image) return null;
+      const collectionDetails = buildCollectionDetails(ownedCards, selectedSet, selectedRarity);
 
-          return {
-            id: ownedCard.card_id,
-            name: cardInfo.name,
-            rarity: cardInfo.rarity || 'Unknown',
-            ink: cardInfo.ink || 'Unknown',
-            set: cardInfo.set || 'Unknown',
-            image: cardInfo.image,
-            quantity: ownedCard.quantity
-          };
-        })
-        .filter(Boolean);
-
-      collectionDetails.sort((a, b) => {
-        const rarityDiff = (lorcana.rarityOrder[b.rarity] || 0) - (lorcana.rarityOrder[a.rarity] || 0);
-        if (rarityDiff !== 0) return rarityDiff;
-        return a.name.localeCompare(b.name);
-      });
+      if (collectionDetails.length === 0) {
+        await interaction.editReply(
+          `You do not have any cards matching set **${getCollectionFilterLabel(selectedSet)}** and rarity **${getCollectionRarityLabel(selectedRarity)}** yet.`
+        );
+        return;
+      }
 
       pendingCollections.set(userId, {
         cards: collectionDetails,
-        page: 0
+        page: 0,
+        selectedSet,
+        selectedRarity
       });
 
       const reply = await createCollectionReply(
         userId,
         interaction.user.username,
         collectionDetails,
-        0
+        0,
+        selectedSet,
+        selectedRarity
       );
 
       await interaction.editReply(reply);
@@ -1920,7 +2401,7 @@ client.on('interactionCreate', async interaction => {
     // Useful for future trading systems.
     // =====================================================
 
-    if (interaction.commandName === 'dupes') {
+    if (commandName === 'dupes') {
       await interaction.deferReply();
 
       const userId = interaction.user.id;
@@ -1991,7 +2472,7 @@ client.on('interactionCreate', async interaction => {
     // Displays top collectors or highest ink balances.
     // =====================================================
 
-    if (interaction.commandName === 'leaderboard') {
+    if (commandName === 'leaderboard') {
       await interaction.deferReply();
 
       const { data: totalData, error: totalError } = await supabase.rpc('get_total_cards');
@@ -2036,6 +2517,7 @@ client.on('interactionCreate', async interaction => {
 
       await interaction.editReply({ embeds: [embed] });
     }
+
   } catch (error) {
     console.error(error);
 
@@ -2049,7 +2531,6 @@ client.on('interactionCreate', async interaction => {
     }
   }
 });
-
 
 // Starts the web server for Twitch OAuth callbacks.
 // Discord bot login stays separate below.

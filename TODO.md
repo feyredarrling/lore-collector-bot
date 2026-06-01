@@ -1,8 +1,9 @@
 # TODO
 
+This is the short working list. Pick one item and keep the chat focused on it.
+
 ## Highest Priority
 
-- Review the current Twitch OAuth and EventSub diff for bugs.
 - Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe off-stream redeem test window.
 - Test Twitch redeem behavior for a linked account.
 - Test Twitch redeem behavior for an unlinked account.
@@ -10,17 +11,16 @@
 - Verify repeated linking and unlinking does not cause duplicate merges.
 - Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
 
-## Medium Priority
+## Next Feature Choices
 
 - Add `/unlinktwitch`.
 - Add `/twitchcollection` so users can view Twitch-held cards before linking.
-- Improve the OAuth success page.
-- Clean up stale comments around unlinked Twitch pulls.
-- Add `/setprogress`.
+- Add `/setprogress` with completion percentage, missing cards, unique owned, and total owned.
 - Add a missing cards command.
-- Improve collection summaries with total cards, unique cards, duplicate count, and total ink value.
+- Improve collection summaries with duplicate count and total ink value.
+- Improve the OAuth success page.
 
-## Lower Priority
+## Later
 
 - Decide whether `twitch-redeem-test.js` should be deleted, renamed, or kept as legacy reference.
 - Move more shared collection logic from `index.js` into `lib/lorcana.js`.
@@ -30,18 +30,14 @@
 - Build OBS/browser-source overlay transport.
 - Explore trading, marketplace, collection export, multi-streamer, and SaaS directions.
 
-## Open Questions
-
-- Should Twitch pull embeds always include a Link Twitch button?
-- Should linked users see Twitch status in `/collection`?
-- Should there be a dedicated `/profile` command?
-- Should `/twitchcollection` exist after linking?
-- Should Twitch-only cards remain visible after merge?
-- How should set completion and missing cards be displayed?
-- Should this stay single-streamer only, or eventually support multi-streamer/commercial use?
-
 ## Done
 
+- Implement whole collection viewing through `/collection`.
+- Implement duplicate viewing through `/dupes`.
+- Implement basic collection totals for total cards and unique cards.
+- Add a `/collection` set option so users can view all sets or one Lorcana set while preserving binder pagination.
+- Add a `/collection` rarity option so users can view all rarities or one rarity while preserving binder pagination.
+- Split Super Rare and Epic into separate `/collection` rarity filter choices.
 - Add Express dependency.
 - Add Twitch OAuth callback route.
 - Replace temporary link-code flow with Twitch OAuth.

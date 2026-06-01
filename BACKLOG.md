@@ -1,4 +1,6 @@
-# Backlog From Previous ChatGPT Work
+# Backlog
+
+This file is the practical backlog index for The Lore Collector bot. Code is the source of truth; this file should stay focused on what is still useful to choose next.
 
 ## Must Do Next
 
@@ -20,10 +22,25 @@
   - Confirm quantities merge correctly.
   - Confirm no duplicates or data loss.
 
+## Completed / Already Implemented
+
+- Whole collection binder exists through `/collection`.
+- `/collection` now supports an optional Lorcana set filter.
+- `/collection` now supports an optional rarity filter.
+- `/collection` keeps Super Rare and Epic as separate rarity filters.
+- Collection binder pagination is reused for whole-collection, set-filtered, and rarity-filtered views.
+- Duplicate viewing exists through `/dupes`.
+- Basic collection summary shows total cards and unique cards.
+- OAuth-based Twitch linking exists.
+- Unlinked Twitch pulls can be saved in `twitch_user_cards`.
+- Twitch-held cards can merge into a Discord collection during linking.
+- EventSub credentials are repaired for `.env.test`.
+- EventSub subscription smoke test passed without live redeems.
+
 ## Bugs And Risks
 
 - EventSub remains disabled by default with `TWITCH_EVENTSUB_ENABLED=false`.
-- EventSub credentials are repaired for `.env.test`, but the token is time-limited and may need regeneration before the next test window.
+- EventSub token is time-limited and may need regeneration before a later test window.
 - Previous EventSub error was `Invalid OAuth token`.
 - OAuth linking works independently from EventSub.
 - EventSub subscription smoke test passed, but no live redeems have been tested yet.
@@ -31,7 +48,7 @@
 - Repeated linking and unlinking needs to be checked so it does not cause duplicate merges.
 - Twitch pulls after linking need to be verified so they route to the Discord collection.
 
-## Features Planned
+## Still Pending
 
 ### Account Linking
 
@@ -51,9 +68,7 @@
   - Total owned.
 - Missing cards command.
 - Collection summary improvements:
-  - Total cards.
-  - Unique cards.
-  - Duplicate count.
+  - Duplicate count in the main collection summary.
   - Total ink value.
 
 ### Twitch Features
