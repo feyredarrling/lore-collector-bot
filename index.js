@@ -44,7 +44,10 @@ const lorcana = require('./lib/lorcana');
 // File system access for loading card data.
 
 const fs = require('fs');
-
+const crypto = require('crypto');
+const WebSocket = require('ws');
+const tmi = require('tmi.js');
+const express = require('express');
 
 // Sharp is used to generate collection binder images.
 
@@ -69,6 +72,22 @@ const {
 // Supabase client used for users, cards, daily claims, ink balances, and leaderboards.
 
 const { createClient } = require('@supabase/supabase-js');
+
+
+// Twitch feature flags.
+// These keep Twitch chat and overlay behavior controlled by .env / .env.test.
+
+const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === 'true';
+const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === 'true';
+const OVERLAY_MODE = process.env.OVERLAY_MODE || 'log';
+
+
+// Web server settings used for Twitch OAuth callbacks.
+// PORT is required for hosting platforms like Railway.
+
+const PORT = process.env.PORT || 3000;
+const TWITCH_REDIRECT_URI = process.env.TWITCH_REDIRECT_URI;
+const TWITCH_LINK_TTL_MS = 10 * 60 * 1000;
 
 
 // Economy settings.
@@ -151,10 +170,171 @@ const supabase = createClient(
 );
 
 
+// =====================================================
+// Twitch Chat Client
+// Sends Lorcana pull announcements into Twitch chat.
+// Controlled by TWITCH_CHAT_ENABLED.
+// =====================================================
+
+const twitchChatClient = new tmi.Client({
+  options: {
+    debug: true
+  },
+
+  identity: {
+    username: process.env.TWITCH_CHAT_USERNAME,
+    password: process.env.TWITCH_CHAT_OAUTH
+  },
+
+  channels: [process.env.TWITCH_CHAT_CHANNEL]
+});
+
+
 // Main Discord bot client connection.
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
+});
+
+
+// =====================================================
+// Express Web Server
+// Handles Twitch OAuth callback routes.
+// =====================================================
+
+const app = express();
+
+app.get('/', (req, res) => {
+  res.send('The Lore Collector bot is running 🎴');
+});
+
+
+// =====================================================
+// Twitch OAuth Callback
+// Twitch redirects users here after authorization.
+// =====================================================
+
+app.get('/auth/twitch/callback', async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error('Twitch OAuth error:', error, error_description);
+      res.status(400).send('Twitch authorization was canceled or failed.');
+      return;
+    }
+
+    if (!code || !state) {
+      res.status(400).send('Missing Twitch authorization code or Discord state.');
+      return;
+    }
+
+    const pendingLink = pendingTwitchLinks.get(state);
+
+    if (!pendingLink || pendingLink.expiresAt < Date.now()) {
+      pendingTwitchLinks.delete(state);
+      res.status(400).send('This Twitch link request expired. Please return to Discord and try again.');
+      return;
+    }
+
+    pendingTwitchLinks.delete(state);
+    const discordUserId = pendingLink.discordUserId;
+
+    // Exchanges the temporary Twitch authorization code for an access token.
+    const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        client_id: process.env.TWITCH_CLIENT_ID,
+        client_secret: process.env.TWITCH_CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: TWITCH_REDIRECT_URI
+      })
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok) {
+      console.error('Twitch token exchange failed:', tokenData);
+      res.status(500).send('Twitch token exchange failed.');
+      return;
+    }
+
+    // Uses the verified Twitch access token to fetch the authorized user's profile.
+    const userResponse = await fetch('https://api.twitch.tv/helix/users', {
+      headers: {
+        'Client-Id': process.env.TWITCH_CLIENT_ID,
+        Authorization: `Bearer ${tokenData.access_token}`
+      }
+    });
+
+    const userData = await userResponse.json();
+
+    if (!userResponse.ok || !userData.data || userData.data.length === 0) {
+      console.error('Twitch user lookup failed:', userData);
+      res.status(500).send('Could not verify Twitch user.');
+      return;
+    }
+
+    const twitchUser = userData.data[0];
+
+    console.log('Verified Twitch user:', {
+      discordUserId,
+      twitchUserId: twitchUser.id,
+      twitchUsername: twitchUser.login,
+      twitchDisplayName: twitchUser.display_name
+    });
+
+    // Saves the verified Twitch account connection.
+    // This lets future Twitch redeems route into the correct Discord collection.
+
+    const { error: linkError } = await supabase
+      .from('linked_accounts')
+      .upsert({
+        discord_user_id: discordUserId,
+        twitch_user_id: twitchUser.id,
+        twitch_username: twitchUser.login,
+        linked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'discord_user_id'
+      });
+
+    if (linkError) {
+      console.error('Failed to save linked Twitch account:', linkError);
+      res.status(500).send('Twitch account verified, but saving the link failed.');
+      return;
+    }
+
+    // Merges any Twitch-only pulls into the linked Discord collection.
+
+    const mergeResult = await lorcana.mergeTwitchCollectionIntoDiscord(
+      supabase,
+      twitchUser.id,
+      discordUserId,
+      twitchUser.display_name
+    );
+
+    if (!mergeResult.success) {
+      console.error('Failed to merge Twitch collection.');
+      res.status(500).send(
+        'Twitch account linked, but merging your saved Twitch cards failed. Please contact the channel owner before linking again.'
+      );
+      return;
+    }
+
+    res.send(
+      `🎴 Twitch account ${twitchUser.display_name} linked successfully!\n\n` +
+      `Merged ${mergeResult.mergedCount} Twitch card(s) into your Discord collection.\n\n` +
+      `You can now return to Discord.`
+    );
+  } catch (error) {
+    console.error('Twitch OAuth callback failed:', error);
+    res.status(500).send('Something went wrong while linking Twitch.');
+  }
 });
 
 
@@ -165,6 +345,8 @@ const client = new Client({
 const pendingPacks = new Map();
 // Stores collection page/binder state by user ID.
 const pendingCollections = new Map();
+// Stores short-lived Twitch OAuth state nonces by random token.
+const pendingTwitchLinks = new Map();
 
 
 // Slash commands registered with Discord.
@@ -203,9 +385,315 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   }
 })();
 
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
+  if (process.env.BOT_MODE === 'test') {
+    if (TWITCH_CHAT_ENABLED) {
+      await twitchChatClient.connect();
+      console.log('Twitch chat client connected.');
+    }
+
+    if (process.env.TWITCH_EVENTSUB_ENABLED === 'true') {
+      connectToTwitchEventSub();
+    } else {
+      console.log('Twitch EventSub disabled by TWITCH_EVENTSUB_ENABLED.');
+    }
+  }
 });
+
+// =====================================================
+// Twitch Reward Helpers
+// Identifies which Lorcana set a Twitch channel point reward belongs to.
+// =====================================================
+
+function getSetFromRewardTitle(rewardTitle) {
+  const title = rewardTitle.toLowerCase();
+
+  if (title.includes('the first chapter')) return 'The First Chapter';
+  if (title.includes('rise of the floodborn')) return 'Rise of the Floodborn';
+  if (title.includes('into the inklands')) return 'Into the Inklands';
+  if (title.includes('ursula')) return "Ursula's Return";
+  if (title.includes('shimmering skies')) return 'Shimmering Skies';
+  if (title.includes('azurite sea')) return 'Azurite Sea';
+
+  return null;
+}
+
+/**
+ * Builds the Twitch OAuth authorization URL.
+ * Users visit this link to securely connect their Twitch account.
+ */
+function createTwitchLinkState(discordUserId) {
+  const state = crypto.randomBytes(24).toString('hex');
+
+  pendingTwitchLinks.set(state, {
+    discordUserId,
+    expiresAt: Date.now() + TWITCH_LINK_TTL_MS
+  });
+
+  return state;
+}
+
+function cleanupExpiredTwitchLinks() {
+  const now = Date.now();
+
+  for (const [state, pendingLink] of pendingTwitchLinks.entries()) {
+    if (pendingLink.expiresAt < now) {
+      pendingTwitchLinks.delete(state);
+    }
+  }
+}
+
+function buildTwitchOAuthUrl(discordUserId) {
+  cleanupExpiredTwitchLinks();
+  const state = createTwitchLinkState(discordUserId);
+
+  const params = new URLSearchParams({
+    client_id: process.env.TWITCH_CLIENT_ID,
+    redirect_uri: TWITCH_REDIRECT_URI,
+    response_type: 'code',
+    scope: '',
+    state
+  });
+
+  return `https://id.twitch.tv/oauth2/authorize?${params.toString()}`;
+}
+
+
+/**
+ * Sends a message into Twitch chat if Twitch chat posting is enabled.
+ */
+async function postToTwitchChat(message) {
+  if (!TWITCH_CHAT_ENABLED) {
+    console.log('Twitch chat disabled. Would have posted:', message);
+    return;
+  }
+
+  await twitchChatClient.say(process.env.TWITCH_CHAT_CHANNEL, message);
+}
+
+
+/**
+ * Handles overlay payload output.
+ * Currently only logs locally for testing.
+ */
+async function handleOverlayData(data) {
+  if (!OVERLAY_ENABLED) {
+    console.log('Overlay disabled.');
+    return;
+  }
+
+  if (OVERLAY_MODE === 'log') {
+    console.log('Overlay Payload:', JSON.stringify(data, null, 2));
+    return;
+  }
+
+  console.log(`Unknown overlay mode: ${OVERLAY_MODE}`);
+}
+
+
+/**
+ * Subscribes this bot session to Twitch channel point redeems.
+ * Twitch sends redeem events through the active EventSub WebSocket session.
+ */
+async function subscribeToChannelPointRedeems(sessionId) {
+  const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    method: 'POST',
+    headers: {
+      'Client-ID': process.env.TWITCH_CLIENT_ID,
+      Authorization: `Bearer ${process.env.TWITCH_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      type: 'channel.channel_points_custom_reward_redemption.add',
+      version: '1',
+      condition: {
+        broadcaster_user_id: process.env.TWITCH_BROADCASTER_ID
+      },
+      transport: {
+        method: 'websocket',
+        session_id: sessionId
+      }
+    })
+  });
+
+  const body = await response.json();
+
+  if (!response.ok) {
+    console.error('Twitch subscription error:', body);
+    throw new Error('Could not subscribe to Twitch redeems.');
+  }
+
+  console.log('Subscribed to Twitch Channel Point redeems.');
+}
+
+
+/**
+ * Opens the Twitch EventSub WebSocket connection.
+ * This listens for channel point redeem notifications.
+ */
+function connectToTwitchEventSub() {
+  const ws = new WebSocket('wss://eventsub.wss.twitch.tv/ws');
+
+  ws.on('open', () => {
+    console.log('Connected to Twitch EventSub WebSocket.');
+  });
+
+  ws.on('message', async rawData => {
+    const message = JSON.parse(rawData.toString());
+
+    if (message.metadata.message_type === 'session_welcome') {
+      const sessionId = message.payload.session.id;
+      console.log('Twitch session ID:', sessionId);
+
+      try {
+        await subscribeToChannelPointRedeems(sessionId);
+      } catch (error) {
+        console.error('Twitch EventSub subscription failed, but the bot will keep running:', error.message);
+        return;
+      }
+
+      const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+      await channel.send('🎴 Twitch redeem listener is online.');
+
+      return;
+    }
+
+    if (message.metadata.message_type === 'notification') {
+      const event = message.payload.event;
+
+      const viewerName = event.user_name;
+      const viewerId = event.user_id;
+      const rewardTitle = event.reward.title;
+
+      console.log('Redeem received:', viewerName, rewardTitle);
+
+      const isLorcanaTestReward = rewardTitle.startsWith('TEST Pull:');
+
+      if (!isLorcanaTestReward) {
+        console.log(`Ignoring non-Lorcana reward: ${rewardTitle}`);
+        return;
+      }
+
+      const setName = getSetFromRewardTitle(rewardTitle);
+
+      if (!setName) {
+        console.log(`Ignoring unknown Lorcana test reward: ${rewardTitle}`);
+        return;
+      }
+
+      const pulledCard = lorcana.getRandomCardFromSet(setName);
+
+      if (!pulledCard) {
+        const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+        await channel.send(`❌ No cards found for set: ${setName}`);
+        return;
+      }
+
+      // Looks up the Twitch user in linked_accounts.
+      // If linked, the card goes into their Discord collection.
+      // If not linked, the card is stored in a Twitch-only collection for later merge.
+
+      const { data: linkedAccount, error: linkedAccountError } = await supabase
+        .from('linked_accounts')
+        .select('*')
+        .eq('twitch_user_id', viewerId)
+        .maybeSingle();
+
+      if (linkedAccountError) {
+        console.error('Linked account lookup failed:', linkedAccountError);
+        return;
+      }
+
+      if (!linkedAccount) {
+        console.log(`No linked Discord account found for Twitch user ${viewerName}. Saving to Twitch collection.`);
+
+        const twitchAddResult = await lorcana.addCardToTwitchCollection(
+          supabase,
+          viewerId,
+          viewerName,
+          pulledCard.id
+        );
+
+        if (!twitchAddResult) {
+          console.error('Could not save unlinked Twitch pull.');
+          return;
+        }
+
+        const embed = lorcana.createSingleCardEmbed({
+          username: viewerName,
+          card: pulledCard,
+          isNew: twitchAddResult.isNew,
+          quantity: twitchAddResult.quantity,
+          titlePrefix: 'Twitch Pull: '
+        });
+
+        const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+
+        await channel.send({
+          content:
+            `🎴 **${viewerName}**, your Twitch pull has been saved!\n\n` +
+            `Link your Twitch account in Discord later to merge these cards into your main collection.`,
+          embeds: [embed],
+          components: [createTwitchLinkButtonRow()]
+        });
+
+        await postToTwitchChat(
+          `${viewerName} pulled ${lorcana.rarityEmoji[pulledCard.rarity] || '🎴'} ${pulledCard.name}! Link Twitch in Discord later to merge your collection 🎴`
+        );
+
+        return;
+      }
+
+      const discordCollectionUserId = linkedAccount.discord_user_id;
+
+      const addResult = await lorcana.addCardToCollection(
+        discordCollectionUserId,
+        viewerName,
+        pulledCard.id,
+        { skipEnsureUser: true }
+      );
+
+      const embed = lorcana.createSingleCardEmbed({
+        username: linkedAccount.twitch_username || viewerName,
+        card: pulledCard,
+        isNew: addResult.isNew,
+        quantity: addResult.quantity,
+        titlePrefix: 'Twitch Pull: '
+      });
+
+      const overlayData = lorcana.createOverlayPullData({
+        username: viewerName,
+        card: pulledCard,
+        setName,
+        isNew: addResult.isNew,
+        quantity: addResult.quantity
+      });
+
+      await handleOverlayData(overlayData);
+
+      const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+      await channel.send({ embeds: [embed] });
+
+      await postToTwitchChat(
+        lorcana.createTwitchPullMessage({
+          username: viewerName,
+          card: pulledCard,
+          setName
+        })
+      );
+    }
+  });
+
+  ws.on('error', error => {
+    console.error('WebSocket error:', error);
+  });
+
+  ws.on('close', () => {
+    console.log('Twitch EventSub WebSocket closed.');
+  });
+}
 
 
 // =====================================================
@@ -362,6 +850,24 @@ function createRevealButton(userId, disabled = false, label = 'Reveal Next Card'
       .setLabel(label)
       .setStyle(ButtonStyle.Primary)
       .setDisabled(disabled)
+  );
+}
+
+
+// =====================================================
+// Twitch Account Linking Buttons
+// =====================================================
+
+/**
+ * Creates the "Link Twitch Account" button shown to users
+ * who have not connected their Twitch account yet.
+ */
+function createTwitchLinkButtonRow() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('link_twitch_account')
+      .setLabel('Link Twitch Account')
+      .setStyle(ButtonStyle.Primary)
   );
 }
 
@@ -896,8 +1402,6 @@ async function handlePackChoice(interaction, packType, ownerId) {
 client.on('interactionCreate', async interaction => {
   try {
     if (ALLOWED_CHANNELS.length > 0 && !ALLOWED_CHANNELS.includes(interaction.channelId)) {
-      
-
       // Handles slash commands like /daily, /pack, /collection, etc.
 
       if (interaction.isChatInputCommand()) {
@@ -913,6 +1417,24 @@ client.on('interactionCreate', async interaction => {
     // Handles interactive Discord buttons like pack reveals and collection paging.
 
     if (interaction.isButton()) {
+      // =====================================================
+// Twitch Account Linking Buttons
+// =====================================================
+
+    if (interaction.customId === 'link_twitch_account') {
+      const oauthUrl = buildTwitchOAuthUrl(interaction.user.id);
+
+      await interaction.reply({
+        content:
+            '## Link Your Twitch Account 🎴\n\n' +
+            'Click the link below to securely connect your Twitch account.\n\n' +
+            'Once linked, Twitch channel point pulls will be added to your Discord collection automatically.\n\n' +
+            `${oauthUrl}`,
+        ephemeral: true
+      });
+
+      return;
+    }
 
 
       // =====================================================
@@ -1251,7 +1773,25 @@ client.on('interactionCreate', async interaction => {
       const user = await getUser(userId);
       const balance = user?.ink_balance || 0;
 
-      await interaction.editReply(`You currently have **${balance} Ink**.`);
+      const linkedAccount = await lorcana.getLinkedTwitchAccount(supabase, userId);
+
+      if (linkedAccount?.twitch_username) {
+        await interaction.editReply({
+          content:
+            `You currently have **${balance} Ink**.\n\n` +
+            `✅ Twitch linked: **${linkedAccount.twitch_username}**`,
+          components: []
+        });
+
+        return;
+      }
+
+      await interaction.editReply({
+        content:
+          `You currently have **${balance} Ink**.\n\n` +
+          `Want Twitch pulls to go into this collection?`,
+        components: [createTwitchLinkButtonRow()]
+      });
     }
 
 
@@ -1508,6 +2048,14 @@ client.on('interactionCreate', async interaction => {
       });
     }
   }
+});
+
+
+// Starts the web server for Twitch OAuth callbacks.
+// Discord bot login stays separate below.
+
+app.listen(PORT, () => {
+  console.log(`Web server listening on port ${PORT}`);
 });
 
 client.login(process.env.DISCORD_TOKEN);

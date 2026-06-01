@@ -1,0 +1,266 @@
+# Backlog From Previous ChatGPT Work
+
+## Must Do Next
+
+- Fix Twitch EventSub credentials for the new Twitch application.
+- Generate a valid EventSub access token that matches the current `TWITCH_CLIENT_ID`.
+- Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe test window.
+- Test linked Twitch redeem flow:
+  - Twitch redeem.
+  - Lookup linked account.
+  - Save to Discord collection.
+  - Post Discord embed.
+  - Post Twitch chat message.
+- Test unlinked Twitch redeem flow:
+  - Save to `twitch_user_cards`.
+  - Show Discord embed.
+  - Show Link Twitch button.
+- Verify Twitch collection merge logic:
+  - Twitch pulls before linking.
+  - Link account.
+  - Confirm cards merge correctly.
+  - Confirm quantities merge correctly.
+  - Confirm no duplicates or data loss.
+
+## Bugs And Risks
+
+- EventSub is currently disabled with `TWITCH_EVENTSUB_ENABLED=false`.
+- Current EventSub error: `Invalid OAuth token`.
+- OAuth linking works independently from EventSub.
+- Merge logic exists but has not been tested with large Twitch collections.
+- Repeated linking and unlinking needs to be checked so it does not cause duplicate merges.
+- Twitch pulls after linking need to be verified so they route to the Discord collection.
+
+## Features Planned
+
+### Account Linking
+
+- `/unlinktwitch`
+  - Remove Twitch link.
+  - Allow relinking.
+  - Preserve collection data.
+- `/twitchcollection`
+  - View Twitch-held cards before linking.
+
+### Collection Features
+
+- `/setprogress`
+  - Completion percentage.
+  - Missing cards.
+  - Unique owned.
+  - Total owned.
+- Missing cards command.
+- Collection summary improvements:
+  - Total cards.
+  - Unique cards.
+  - Duplicate count.
+  - Total ink value.
+
+### Twitch Features
+
+- Add Link Twitch button to Twitch pull embeds.
+- Additional Twitch redeem types:
+  - First Chapter Pack.
+  - Rise of the Floodborn.
+  - Into the Inklands.
+  - Ursula's Return.
+  - Azurite Sea.
+  - Future sets.
+- Seasonal packs:
+  - Mother's Day.
+  - Father's Day.
+  - Release Day packs.
+  - Holiday packs.
+
+### Overlay System
+
+- OBS/browser source transport.
+- Stream pull feed.
+- Real-time recent pulls overlay.
+
+### Future Major Features
+
+- Trading system.
+- Trade marketplace.
+- Collection export.
+- Multi-streamer support.
+- Sellable SaaS version.
+
+## Decisions Already Made
+
+### Architecture
+
+- `index.js` is the single runtime for Discord, Twitch Chat, Twitch EventSub, OAuth, and the Express server.
+- `lib/lorcana.js` is the shared game logic layer.
+
+### Environment Separation
+
+- Production uses `.env`, production Supabase, and production Discord bot resources.
+- Testing uses `.env.test`, test Supabase, test Discord bot, and test Discord channel.
+
+### Account Linking
+
+- Linking is OAuth-based only.
+- Do not use public link codes.
+- No `/linktwitch` command is required right now.
+
+Flow:
+
+```text
+Discord
+-> Link Twitch button
+-> Twitch OAuth
+-> Verified Twitch user
+-> Save link
+```
+
+### Collection Strategy
+
+```text
+Discord pulls
+-> user_cards
+
+Twitch pulls before linking
+-> twitch_user_cards
+
+Account linking
+-> merge Twitch cards into Discord collection
+
+Future Twitch pulls
+-> save directly into Discord collection
+```
+
+### Twitch Collection Retention
+
+- Do not discard Twitch collection history.
+- Use `merged_to_discord_user_id` and `merged_at` for auditability.
+
+### Safety During Streaming
+
+Do not test these while live:
+
+- EventSub.
+- Twitch redeems.
+- Channel point rewards.
+
+Safe while streaming:
+
+- OAuth work.
+- Discord commands.
+- Database work.
+- Collection logic.
+- Refactoring.
+- UI improvements.
+
+## Things Tried
+
+### Twitch Link Codes
+
+Tried:
+
+```text
+!link ABC123
+```
+
+Decision:
+
+- Abandoned.
+
+Reasons:
+
+- Public in Twitch chat.
+- Easy to mistype.
+- Poor UX.
+- OAuth is cleaner.
+
+### Separate Twitch Test Runtime
+
+Originally used:
+
+```text
+twitch-redeem-test.js
+```
+
+Decision:
+
+- Retired.
+
+Reason:
+
+- Single runtime is easier.
+- Everything now runs through `index.js`.
+
+### Skipping Unlinked Twitch Pulls
+
+Original behavior:
+
+```text
+No link
+-> pull ignored
+```
+
+Decision:
+
+- Changed.
+
+New behavior:
+
+```text
+No link
+-> save to twitch_user_cards
+```
+
+Reason:
+
+- Users may collect for months before joining Discord.
+
+## Things Not To Do
+
+- Do not delete Twitch-held cards after merge testing is complete.
+- Do not force account linking before allowing Twitch pulls.
+- Do not bring back public Twitch link codes.
+- Do not split Twitch functionality back into separate runtimes.
+- Do not test live redeems while actively streaming.
+- Do not store Twitch-only collections directly in `user_cards`.
+- Do not bypass OAuth verification.
+
+## Open Questions
+
+### Account Linking UX
+
+- Should Twitch pull embeds always include a Link Twitch button?
+- Should linked users see Twitch status in `/collection`?
+- Should there be a dedicated `/profile` command?
+
+### Twitch Collection UX
+
+- Should `/twitchcollection` exist after linking?
+- Should Twitch-only cards remain visible after merge?
+
+### OAuth Success UX
+
+Current:
+
+```text
+Twitch account linked successfully.
+```
+
+Future possibilities:
+
+- Styled page.
+- Auto-close.
+- Redirect back to Discord.
+- Better instructions.
+
+### Collection Features
+
+- How should set completion be displayed?
+- How should missing cards be displayed?
+- Should ink totals appear everywhere?
+
+### Future Business Direction
+
+- Single streamer bot only?
+- Multi-streamer support?
+- Commercial/SaaS offering?
+
