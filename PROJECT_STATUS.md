@@ -73,10 +73,15 @@ Completed:
 - `.env.test` now uses local callback port `3001` to avoid the other local bot on port `3000`.
 - The Twitch Developer Console app has `http://localhost:3001/auth/twitch/callback` registered.
 - EventSub subscription smoke test passed in test mode: Twitch accepted the Channel Point redemption subscription.
+- Linked Twitch redeem validation passed in test mode.
+- Unlinked Twitch redeem validation passed in test mode.
+- Unlinked Twitch chat messages now include the direct Discord channel URL where the pull embed appears.
+- Automatic Twitch-to-Discord merge was verified with real test rows.
+- Re-running the Twitch-to-Discord merge helper merged zero cards, confirming no duplicate merge on repeat.
+- Missing test Supabase `announcements` table is now treated as a non-blocking announcement warning.
 
 Pending:
 
-- Live Twitch redeem validation.
 - Production Supabase `linked_accounts.discord_user_id` duplicate check and unique index.
 - Transactional Supabase merge RPC for fully atomic Twitch-to-Discord collection merging.
 - `/unlinktwitch`.
@@ -170,11 +175,11 @@ Current intended redeem behavior:
 - Keep Twitch collection history after merge for auditability.
 - Do not store Twitch-only collections directly in `user_cards`.
 
-## Current Blocker
+## Current Twitch Status
 
 EventSub credential repair is complete for `.env.test`.
 
-`TWITCH_EVENTSUB_ENABLED=false` remains intentional because live redeem validation is still pending and should only happen during a safe test window.
+`TWITCH_EVENTSUB_ENABLED=false` remains intentional outside planned test windows so live Twitch redeems are not handled accidentally during normal development.
 
 Previous blocker:
 
@@ -188,4 +193,8 @@ Current verified state:
 - Token user matches `TWITCH_BROADCASTER_ID` for `feyredarrling`.
 - Token has `channel:read:redemptions`.
 - A test-mode EventSub WebSocket subscription succeeded.
-- No live redeems have been tested yet because the owner was live.
+- Linked live test redeem routed to `user_cards`.
+- Unlinked live test redeem routed to `twitch_user_cards`.
+- Twitch chat unlinked message links directly to the Discord test channel.
+- Automatic merge moved two Twitch-held cards into the linked Discord collection.
+- Repeat merge returned `mergedCount: 0`.

@@ -4,23 +4,9 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 
 ## Must Do Next
 
-- Test live Twitch redeems during a safe off-stream window.
-- Test linked Twitch redeem flow:
-  - Twitch redeem.
-  - Lookup linked account.
-  - Save to Discord collection.
-  - Post Discord embed.
-  - Post Twitch chat message.
-- Test unlinked Twitch redeem flow:
-  - Save to `twitch_user_cards`.
-  - Show Discord embed.
-  - Show Link Twitch button.
-- Verify Twitch collection merge logic:
-  - Twitch pulls before linking.
-  - Link account.
-  - Confirm cards merge correctly.
-  - Confirm quantities merge correctly.
-  - Confirm no duplicates or data loss.
+- Decide whether to keep `TWITCH_EVENTSUB_ENABLED=false` as the manual safety switch or add a safer test/start script.
+- Build `/unlinktwitch`.
+- Build `/twitchcollection` so users can view Twitch-held cards before linking.
 
 ## Completed / Already Implemented
 
@@ -36,6 +22,11 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Twitch-held cards can merge into a Discord collection during linking.
 - EventSub credentials are repaired for `.env.test`.
 - EventSub subscription smoke test passed without live redeems.
+- Linked live test redeem routed to `user_cards`.
+- Unlinked live test redeem routed to `twitch_user_cards`.
+- Unlinked Twitch chat messages include the direct Discord channel URL where the pull embed appears.
+- Automatic Twitch-to-Discord merge was verified with real test rows.
+- Repeat merge returned zero merged cards and did not duplicate the collection.
 
 ## Bugs And Risks
 
@@ -43,10 +34,9 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - EventSub token is time-limited and may need regeneration before a later test window.
 - Previous EventSub error was `Invalid OAuth token`.
 - OAuth linking works independently from EventSub.
-- EventSub subscription smoke test passed, but no live redeems have been tested yet.
 - Merge logic exists but has not been tested with large Twitch collections.
-- Repeated linking and unlinking needs to be checked so it does not cause duplicate merges.
-- Twitch pulls after linking need to be verified so they route to the Discord collection.
+- Repeated linking and unlinking beyond the verified repeat-merge helper path still needs full UX testing.
+- Twitch pulls after linking have been verified once in test mode, but should be checked again before production enablement.
 
 ## Still Pending
 

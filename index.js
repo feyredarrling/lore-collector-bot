@@ -463,6 +463,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 })();
 
 const lastAnnouncementMessages = new Map();
+let missingAnnouncementsTableLogged = false;
 
 async function processAnnouncements() {
 
@@ -473,6 +474,14 @@ async function processAnnouncements() {
     .maybeSingle();
 
   if (error) {
+    if (error.code === 'PGRST205' && error.message?.includes("table 'public.announcements'")) {
+      if (!missingAnnouncementsTableLogged) {
+        console.log('Announcements table is not available; skipping rotating announcements.');
+        missingAnnouncementsTableLogged = true;
+      }
+      return;
+    }
+
     console.error('Failed to load announcement:', error);
     return;
   }
@@ -825,6 +834,8 @@ function connectToTwitchEventSub() {
         });
 
         const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+        const discordChannelUrl =
+          channel.url || `https://discord.com/channels/${channel.guildId}/${channel.id}`;
 
         await channel.send({
           content:
@@ -835,7 +846,7 @@ function connectToTwitchEventSub() {
         });
 
         await postToTwitchChat(
-          `${viewerName} pulled ${lorcana.rarityEmoji[pulledCard.rarity] || '🎴'} ${pulledCard.name}! Link Twitch in Discord later to merge your collection 🎴`
+          `${viewerName} pulled ${lorcana.rarityEmoji[pulledCard.rarity] || '🎴'} ${pulledCard.name}! Link Twitch in Discord to merge your collection: ${discordChannelUrl}`
         );
 
         return;

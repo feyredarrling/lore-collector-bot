@@ -145,7 +145,11 @@ Status as of 2026-06-01:
 - Validation passed for the configured `TWITCH_BROADCASTER_ID`.
 - Validation confirmed `channel:read:redemptions`.
 - A test-mode EventSub subscription smoke test succeeded.
-- Live Twitch redeem validation is still pending.
+- Linked live test redeem validation succeeded.
+- Unlinked live test redeem validation succeeded.
+- Unlinked Twitch chat messages include a direct Discord channel URL.
+- Automatic Twitch-to-Discord merge moved real test Twitch rows into the linked Discord collection.
+- Repeat merge returned zero merged cards and did not duplicate the collection.
 - `TWITCH_EVENTSUB_ENABLED=false` should remain the default outside a safe redeem test window.
 
 The bot uses `TWITCH_ACCESS_TOKEN` to create this EventSub subscription:
@@ -255,6 +259,16 @@ node index.js
 ```text
 TWITCH_EVENTSUB_ENABLED=false
 ```
+
+### Verified Redeem Results
+
+As of 2026-06-01:
+
+- Linked `TEST Pull:` redeem saved to `user_cards`.
+- Unlinked `TEST Pull:` redeem saved to `twitch_user_cards`.
+- Unlinked chat response included the direct Discord channel URL for the pull embed.
+- Re-link/merge behavior was verified by calling the same merge helper used by the OAuth callback.
+- A second merge call returned `mergedCount: 0`.
 
 ### Sources
 

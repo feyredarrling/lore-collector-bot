@@ -4,11 +4,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 
 ## Highest Priority
 
-- Re-enable `TWITCH_EVENTSUB_ENABLED=true` only during a safe off-stream redeem test window.
-- Test Twitch redeem behavior for a linked account.
-- Test Twitch redeem behavior for an unlinked account.
-- Test merge behavior when an unlinked Twitch user links later.
-- Verify repeated linking and unlinking does not cause duplicate merges.
+- Decide whether to keep `TWITCH_EVENTSUB_ENABLED=false` as the manual safety switch or add a safer test/start script.
 - Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
 
 ## Next Feature Choices
@@ -52,3 +48,9 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Move the `.env.test` local callback to port `3001`.
 - Add the port `3001` callback URL to the Twitch Developer Console app.
 - Verify EventSub subscription creation in test mode without live redeems.
+- Test Twitch redeem behavior for a linked account.
+- Test Twitch redeem behavior for an unlinked account.
+- Add direct Discord channel URL to the unlinked Twitch chat message.
+- Test merge behavior when an unlinked Twitch user links later.
+- Verify repeat merge does not duplicate cards.
+- Treat missing test Supabase `announcements` table as a non-blocking warning.
