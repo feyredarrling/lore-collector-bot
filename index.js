@@ -72,6 +72,16 @@ const mothersDayPool = cards.filter(card =>
 const COLLECTION_SET_CHOICES = [...new Set(cards.map(card => card.set).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
 
+const COLLECTION_RARITY_CHOICES = [
+  'Common',
+  'Uncommon',
+  'Rare',
+  'Super Rare',
+  'Legendary',
+  'Enchanted',
+  'Promo'
+];
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -100,6 +110,19 @@ const commands = [
           ...COLLECTION_SET_CHOICES.map(setName => ({
             name: setName,
             value: setName
+          }))
+        )
+    )
+    .addStringOption(option =>
+      option
+        .setName('rarity')
+        .setDescription('Show only one card rarity')
+        .setRequired(false)
+        .addChoices(
+          { name: 'All Rarities', value: 'all' },
+          ...COLLECTION_RARITY_CHOICES.map(rarity => ({
+            name: rarity === 'Super Rare' ? 'Super Rare / Epic' : rarity,
+            value: rarity
           }))
         )
     ),
@@ -697,6 +720,10 @@ function getCollectionFilterLabel(selectedSet) {
   return selectedSet ? selectedSet : 'All Sets';
 }
 
+function getCollectionRarityLabel(selectedRarity) {
+  return selectedRarity ? selectedRarity : 'All Rarities';
+}
+
 function getSelectedCollectionSet(interaction) {
   const selectedSet = interaction.options.getString('set');
 
@@ -711,12 +738,27 @@ function getSelectedCollectionSet(interaction) {
   return selectedSet;
 }
 
-function buildCollectionDetails(ownedCards, selectedSet = null) {
+function getSelectedCollectionRarity(interaction) {
+  const selectedRarity = interaction.options.getString('rarity');
+
+  if (!selectedRarity || selectedRarity === 'all') {
+    return null;
+  }
+
+  if (!COLLECTION_RARITY_CHOICES.includes(selectedRarity)) {
+    return null;
+  }
+
+  return selectedRarity;
+}
+
+function buildCollectionDetails(ownedCards, selectedSet = null, selectedRarity = null) {
   return ownedCards
     .map(ownedCard => {
       const cardInfo = getCardById(ownedCard.card_id);
       if (!cardInfo || !cardInfo.image) return null;
       if (selectedSet && cardInfo.set !== selectedSet) return null;
+      if (selectedRarity && cardInfo.rarity !== selectedRarity) return null;
 
       return {
         id: ownedCard.card_id,
@@ -753,7 +795,14 @@ function getCollectionPageData(collectionDetails, page) {
   };
 }
 
-async function createCollectionReply(userId, username, collectionDetails, page, selectedSet = null) {
+async function createCollectionReply(
+  userId,
+  username,
+  collectionDetails,
+  page,
+  selectedSet = null,
+  selectedRarity = null
+) {
   const pageData = getCollectionPageData(collectionDetails, page);
   const imageBuffer = await createCollectionImage(pageData.pageCards);
 
@@ -762,7 +811,7 @@ async function createCollectionReply(userId, username, collectionDetails, page, 
   });
 
   const content =
-    `Set: **${getCollectionFilterLabel(selectedSet)}**\n` +
+    `Set: **${getCollectionFilterLabel(selectedSet)}** | Rarity: **${getCollectionRarityLabel(selectedRarity)}**\n` +
     `Here is your Lorcana binder, ${username} 🎴\n` +
     `Total Cards: **${pageData.totalCards}** • Unique Cards: **${pageData.uniqueCards}**\n` +
     `Page **${pageData.page + 1}** of **${pageData.totalPages}**`;
@@ -926,7 +975,8 @@ client.on('interactionCreate', async interaction => {
           interaction.user.username,
           collectionData.cards,
           collectionData.page,
-          collectionData.selectedSet
+          collectionData.selectedSet,
+          collectionData.selectedRarity
         );
 
         await interaction.editReply({
@@ -967,7 +1017,8 @@ client.on('interactionCreate', async interaction => {
           interaction.user.username,
           collectionData.cards,
           collectionData.page,
-          collectionData.selectedSet
+          collectionData.selectedSet,
+          collectionData.selectedRarity
         );
 
         await interaction.editReply({
@@ -1450,6 +1501,7 @@ if (randomCard.rarity === 'Enchanted') {
 
       const userId = interaction.user.id;
       const selectedSet = getSelectedCollectionSet(interaction);
+      const selectedRarity = getSelectedCollectionRarity(interaction);
 
       const { data: ownedCards, error } = await supabase
         .from('user_cards')
@@ -1465,11 +1517,11 @@ if (randomCard.rarity === 'Enchanted') {
         return;
       }
 
-      const collectionDetails = buildCollectionDetails(ownedCards, selectedSet);
+      const collectionDetails = buildCollectionDetails(ownedCards, selectedSet, selectedRarity);
 
       if (collectionDetails.length === 0) {
         await interaction.editReply(
-          `You do not have any cards from **${getCollectionFilterLabel(selectedSet)}** yet.`
+          `You do not have any cards matching set **${getCollectionFilterLabel(selectedSet)}** and rarity **${getCollectionRarityLabel(selectedRarity)}** yet.`
         );
         return;
       }
@@ -1477,7 +1529,8 @@ if (randomCard.rarity === 'Enchanted') {
       pendingCollections.set(userId, {
         cards: collectionDetails,
         page: 0,
-        selectedSet
+        selectedSet,
+        selectedRarity
       });
 
       const reply = await createCollectionReply(
@@ -1485,7 +1538,8 @@ if (randomCard.rarity === 'Enchanted') {
         interaction.user.username,
         collectionDetails,
         0,
-        selectedSet
+        selectedSet,
+        selectedRarity
       );
 
       await interaction.editReply(reply);

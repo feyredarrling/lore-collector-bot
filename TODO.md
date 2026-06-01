@@ -20,3 +20,4 @@ This is the short working list. Pick one item and start a focused Codex chat for
 - Implement duplicate viewing through `/dupes`.
 - Implement basic collection totals for total cards and unique cards.
 - Add a `/collection` set option so users can view all sets or one Lorcana set while preserving binder pagination.
+- Add a `/collection` rarity option so users can view all rarities or one rarity while preserving binder pagination.
