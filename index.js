@@ -238,10 +238,14 @@ function createOverlayHtml() {
   <title>The Lore Collector Overlay</title>
   <style>
     :root {
-      --gold: #f7c95f;
-      --ink: #191420;
-      --paper: rgba(255, 249, 236, 0.96);
-      --shadow: rgba(25, 20, 32, 0.36);
+      --gold: #f4c76b;
+      --gold-bright: #ffe6a0;
+      --ink: #120a1d;
+      --plum: #2b1646;
+      --violet: #a45cff;
+      --panel: rgba(16, 9, 30, 0.92);
+      --panel-soft: rgba(49, 24, 78, 0.88);
+      --shadow: rgba(0, 0, 0, 0.48);
     }
 
     * { box-sizing: border-box; }
@@ -258,77 +262,100 @@ function createOverlayHtml() {
     }
 
     body {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
+      position: relative;
       padding: 36px;
     }
 
     .pull {
-      width: min(860px, calc(100vw - 72px));
-      min-height: 250px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(500px, calc(100vw - 72px));
       display: grid;
-      grid-template-columns: 170px 1fr;
-      gap: 22px;
-      align-items: center;
-      padding: 20px 24px;
-      border: 3px solid var(--gold);
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--paper), rgba(245, 235, 211, 0.94));
-      box-shadow: 0 20px 60px var(--shadow);
+      grid-template-columns: 1fr;
+      justify-items: center;
+      gap: 12px;
+      padding: 0;
+      background: transparent;
       opacity: 0;
-      transform: translateY(34px) scale(0.96);
+      transform: translate(-50%, -44%);
       transition: opacity 360ms ease, transform 360ms ease;
     }
 
     .pull.show {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translate(-50%, -50%);
     }
 
     .card-image {
-      width: 150px;
+      width: min(300px, 36vw, 42vh);
       aspect-ratio: 734 / 1024;
-      border-radius: 8px;
+      border: 3px solid var(--gold);
+      border-radius: 18px;
       object-fit: cover;
       background: #21182d;
-      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+      box-shadow:
+        0 0 0 6px rgba(18, 10, 29, 0.78),
+        0 0 34px rgba(244, 199, 107, 0.38),
+        0 24px 70px var(--shadow);
+    }
+
+    .pull > div {
+      width: 100%;
+      position: relative;
+      padding: 12px 16px 14px;
+      border: 2px solid rgba(244, 199, 107, 0.86);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(61, 28, 95, 0.72), rgba(12, 8, 26, 0.96)),
+        radial-gradient(circle at 50% 0%, rgba(164, 92, 255, 0.28), transparent 48%);
+      box-shadow:
+        0 0 0 2px rgba(76, 37, 114, 0.7),
+        0 0 28px rgba(164, 92, 255, 0.34),
+        0 18px 54px var(--shadow);
+      text-align: center;
     }
 
     .eyebrow {
-      margin: 0 0 8px;
-      font-size: 22px;
+      display: inline-block;
+      margin: -24px 0 7px;
+      padding: 4px 15px;
+      border: 2px solid rgba(244, 199, 107, 0.82);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(55, 28, 92, 0.96), rgba(19, 10, 34, 0.96));
+      font-size: 10px;
       font-weight: 800;
-      color: #6a3f00;
+      color: #f7e6c7;
     }
 
     .card-name {
       margin: 0;
-      font-size: 46px;
-      line-height: 1.04;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(18px, 2.8vw, 26px);
+      line-height: 0.95;
       font-weight: 900;
+      color: var(--gold-bright);
     }
 
     .meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-      font-size: 24px;
-      font-weight: 700;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 10px;
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
     }
 
     .pill {
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(25, 20, 32, 0.1);
-    }
-
-    .message {
-      margin: 14px 0 0;
-      font-size: 24px;
-      font-weight: 700;
-      color: #4a314f;
+      min-width: 92px;
+      padding: 5px 8px;
+      border: 2px solid rgba(164, 92, 255, 0.82);
+      border-radius: 7px;
+      background: linear-gradient(180deg, rgba(63, 28, 96, 0.92), rgba(29, 12, 48, 0.94));
+      color: #f5dcff;
+      box-shadow: inset 0 0 16px rgba(164, 92, 255, 0.22);
     }
 
     @media (max-width: 640px) {
@@ -336,16 +363,13 @@ function createOverlayHtml() {
 
       .pull {
         width: calc(100vw - 36px);
-        grid-template-columns: 110px 1fr;
-        gap: 14px;
-        padding: 14px;
+        gap: 12px;
       }
 
-      .card-image { width: 104px; }
-      .eyebrow { font-size: 16px; }
-      .card-name { font-size: 26px; }
-      .meta,
-      .message { font-size: 16px; }
+      .card-image { width: min(230px, 58vw, 40vh); }
+      .eyebrow { font-size: 10px; }
+      .card-name { font-size: 21px; }
+      .meta { font-size: 10px; }
     }
   </style>
 </head>
@@ -358,9 +382,7 @@ function createOverlayHtml() {
       <div class="meta">
         <span id="rarity" class="pill"></span>
         <span id="setName" class="pill"></span>
-        <span id="quantity" class="pill"></span>
       </div>
-      <p id="message" class="message"></p>
     </div>
   </section>
 
@@ -372,8 +394,6 @@ function createOverlayHtml() {
     const cardName = document.getElementById('cardName');
     const rarity = document.getElementById('rarity');
     const setName = document.getElementById('setName');
-    const quantity = document.getElementById('quantity');
-    const message = document.getElementById('message');
     let hideTimer = null;
 
     function showPull(data) {
@@ -384,8 +404,6 @@ function createOverlayHtml() {
       cardName.textContent = card.name || 'Unknown Card';
       rarity.textContent = (data.rarityEmoji || '') + ' ' + (card.rarity || 'Unknown');
       setName.textContent = data.setName || card.set || 'Unknown Set';
-      quantity.textContent = data.isNew ? 'NEW' : 'Quantity ' + (data.quantity || 1);
-      message.textContent = data.message || 'Added to the collection.';
 
       clearTimeout(hideTimer);
       pull.classList.add('show');
