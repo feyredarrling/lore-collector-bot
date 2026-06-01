@@ -77,6 +77,7 @@ const COLLECTION_RARITY_CHOICES = [
   'Uncommon',
   'Rare',
   'Super Rare',
+  'Epic',
   'Legendary',
   'Enchanted',
   'Promo'
@@ -121,7 +122,7 @@ const commands = [
         .addChoices(
           { name: 'All Rarities', value: 'all' },
           ...COLLECTION_RARITY_CHOICES.map(rarity => ({
-            name: rarity === 'Super Rare' ? 'Super Rare / Epic' : rarity,
+            name: rarity,
             value: rarity
           }))
         )

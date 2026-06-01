@@ -7,6 +7,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Whole collection binder exists through `/collection`.
 - `/collection` now supports an optional Lorcana set filter.
 - `/collection` now supports an optional rarity filter.
+- `/collection` keeps Super Rare and Epic as separate rarity filters.
 - Collection binder pagination is reused for whole-collection and set-filtered views.
 - Collection binder pagination is reused for rarity-filtered views.
 - Duplicate viewing exists through `/dupes`.
