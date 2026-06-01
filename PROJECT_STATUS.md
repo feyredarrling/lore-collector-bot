@@ -80,6 +80,8 @@ Completed:
 - Re-running the Twitch-to-Discord merge helper merged zero cards, confirming no duplicate merge on repeat.
 - Missing test Supabase `announcements` table is now treated as a non-blocking announcement warning.
 - EventSub now accepts live reward titles starting with `Pull:` while still accepting `TEST Pull:` for testing.
+- OBS browser-source overlay route added at `/overlay`.
+- Overlay preview endpoint added at `/overlay/test`.
 
 Pending:
 
@@ -89,6 +91,7 @@ Pending:
 - `/twitchcollection`.
 - `/setprogress` and missing-card views.
 - Improved OAuth success page.
+- Final overlay styling and OBS sizing pass.
 
 ## Important Safety Rule
 

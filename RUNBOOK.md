@@ -75,6 +75,31 @@ The Twitch Developer Console app must include this exact test callback URL:
 http://localhost:3001/auth/twitch/callback
 ```
 
+## OBS Overlay
+
+The browser-source overlay is served by the same Express server:
+
+```text
+http://localhost:3001/overlay
+```
+
+For local testing, start the bot with:
+
+```powershell
+$env:NODE_ENV = "test"
+$env:OVERLAY_ENABLED = "true"
+$env:OVERLAY_MODE = "browser"
+node index.js
+```
+
+Trigger a preview event without using Twitch redeems:
+
+```text
+http://localhost:3001/overlay/test
+```
+
+OBS should use a transparent browser source. The overlay listens for Twitch pull events and displays the viewer name, card image, card name, rarity, set, and new/quantity status.
+
 ## Safe Testing While Live
 
 Safe:

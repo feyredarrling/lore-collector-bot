@@ -81,6 +81,7 @@ const { createClient } = require('@supabase/supabase-js');
 const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === 'true';
 const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === 'true';
 const OVERLAY_MODE = process.env.OVERLAY_MODE || 'log';
+const OVERLAY_DISPLAY_MS = Number(process.env.OVERLAY_DISPLAY_MS || 9000);
 
 
 // Web server settings used for Twitch OAuth callbacks.
@@ -218,9 +219,227 @@ const client = new Client({
 // =====================================================
 
 const app = express();
+const overlayClients = new Set();
+
+function sendOverlayEvent(data) {
+  const payload = `event: pull\ndata: ${JSON.stringify(data)}\n\n`;
+
+  for (const client of overlayClients) {
+    client.write(payload);
+  }
+}
+
+function createOverlayHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Lore Collector Overlay</title>
+  <style>
+    :root {
+      --gold: #f7c95f;
+      --ink: #191420;
+      --paper: rgba(255, 249, 236, 0.96);
+      --shadow: rgba(25, 20, 32, 0.36);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: transparent;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+    }
+
+    body {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 36px;
+    }
+
+    .pull {
+      width: min(860px, calc(100vw - 72px));
+      min-height: 250px;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+      gap: 22px;
+      align-items: center;
+      padding: 20px 24px;
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--paper), rgba(245, 235, 211, 0.94));
+      box-shadow: 0 20px 60px var(--shadow);
+      opacity: 0;
+      transform: translateY(34px) scale(0.96);
+      transition: opacity 360ms ease, transform 360ms ease;
+    }
+
+    .pull.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .card-image {
+      width: 150px;
+      aspect-ratio: 734 / 1024;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #21182d;
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #6a3f00;
+    }
+
+    .card-name {
+      margin: 0;
+      font-size: 46px;
+      line-height: 1.04;
+      font-weight: 900;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(25, 20, 32, 0.1);
+    }
+
+    .message {
+      margin: 14px 0 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: #4a314f;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 18px; }
+
+      .pull {
+        width: calc(100vw - 36px);
+        grid-template-columns: 110px 1fr;
+        gap: 14px;
+        padding: 14px;
+      }
+
+      .card-image { width: 104px; }
+      .eyebrow { font-size: 16px; }
+      .card-name { font-size: 26px; }
+      .meta,
+      .message { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <section id="pull" class="pull" aria-live="polite">
+    <img id="cardImage" class="card-image" alt="">
+    <div>
+      <p id="eyebrow" class="eyebrow"></p>
+      <h1 id="cardName" class="card-name"></h1>
+      <div class="meta">
+        <span id="rarity" class="pill"></span>
+        <span id="setName" class="pill"></span>
+        <span id="quantity" class="pill"></span>
+      </div>
+      <p id="message" class="message"></p>
+    </div>
+  </section>
+
+  <script>
+    const displayMs = ${OVERLAY_DISPLAY_MS};
+    const pull = document.getElementById('pull');
+    const cardImage = document.getElementById('cardImage');
+    const eyebrow = document.getElementById('eyebrow');
+    const cardName = document.getElementById('cardName');
+    const rarity = document.getElementById('rarity');
+    const setName = document.getElementById('setName');
+    const quantity = document.getElementById('quantity');
+    const message = document.getElementById('message');
+    let hideTimer = null;
+
+    function showPull(data) {
+      const card = data.card || {};
+      cardImage.src = card.image || '';
+      cardImage.alt = card.name || 'Pulled Lorcana card';
+      eyebrow.textContent = (data.username || 'Someone') + ' pulled';
+      cardName.textContent = card.name || 'Unknown Card';
+      rarity.textContent = (data.rarityEmoji || '') + ' ' + (card.rarity || 'Unknown');
+      setName.textContent = data.setName || card.set || 'Unknown Set';
+      quantity.textContent = data.isNew ? 'NEW' : 'Quantity ' + (data.quantity || 1);
+      message.textContent = data.message || 'Added to the collection.';
+
+      clearTimeout(hideTimer);
+      pull.classList.add('show');
+      hideTimer = setTimeout(() => pull.classList.remove('show'), displayMs);
+    }
+
+    const events = new EventSource('/overlay/events');
+    events.addEventListener('pull', event => showPull(JSON.parse(event.data)));
+  </script>
+</body>
+</html>`;
+}
 
 app.get('/', (req, res) => {
   res.send('The Lore Collector bot is running 🎴');
+});
+
+
+// =====================================================
+// Overlay Routes
+// Provides an OBS browser source and a Server-Sent Events stream.
+// =====================================================
+
+app.get('/overlay', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(createOverlayHtml());
+});
+
+app.get('/overlay/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  res.write('event: ready\ndata: {}\n\n');
+  overlayClients.add(res);
+
+  req.on('close', () => {
+    overlayClients.delete(res);
+  });
+});
+
+app.get('/overlay/test', (req, res) => {
+  const card = lorcana.cards.find(item => item.image) || lorcana.cards[0];
+  const payload = lorcana.createOverlayPullData({
+    username: 'FeyreDarrling',
+    card,
+    setName: card.set,
+    isNew: true,
+    quantity: 1
+  });
+
+  sendOverlayEvent(payload);
+  res.json({ ok: true, payload });
 });
 
 
@@ -692,8 +911,15 @@ async function handleOverlayData(data) {
     return;
   }
 
+  sendOverlayEvent(data);
+
   if (OVERLAY_MODE === 'log') {
     console.log('Overlay Payload:', JSON.stringify(data, null, 2));
+    return;
+  }
+
+  if (OVERLAY_MODE === 'browser') {
+    console.log(`Overlay event sent to ${overlayClients.size} client(s).`);
     return;
   }
 
@@ -836,6 +1062,16 @@ function connectToTwitchEventSub() {
           quantity: twitchAddResult.quantity,
           titlePrefix: 'Twitch Pull: '
         });
+
+        const overlayData = lorcana.createOverlayPullData({
+          username: viewerName,
+          card: pulledCard,
+          setName,
+          isNew: twitchAddResult.isNew,
+          quantity: twitchAddResult.quantity
+        });
+
+        await handleOverlayData(overlayData);
 
         const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
         const discordChannelUrl =
