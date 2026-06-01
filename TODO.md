@@ -16,6 +16,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Improve collection summaries with duplicate count and total ink value.
 - Improve the OAuth success page.
 - Create live Twitch channel point rewards named with `Pull:`.
+- Before production launch, set `TWITCH_PULL_DISCORD_CHANNEL_ID` to the real Discord pull channel and confirm production Supabase env vars.
 
 ## Later
 
@@ -56,3 +57,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Verify repeat merge does not duplicate cards.
 - Treat missing test Supabase `announcements` table as a non-blocking warning.
 - Accept live `Pull:` reward titles while keeping `TEST Pull:` for tests.
+- Route Twitch pull Discord embeds through `TWITCH_PULL_DISCORD_CHANNEL_ID` instead of hardcoding the test channel.

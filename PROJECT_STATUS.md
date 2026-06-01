@@ -125,6 +125,7 @@ TWITCH_CHAT_ENABLED=true
 OVERLAY_ENABLED=false
 OVERLAY_MODE=log
 TWITCH_EVENTSUB_ENABLED=false
+TWITCH_PULL_DISCORD_CHANNEL_ID=<test Discord channel ID>
 ```
 
 `TWITCH_EVENTSUB_ENABLED=false` is intentional. Do not re-enable automatically. Only enable it when specifically testing Twitch redeems and when it is safe to affect the Twitch channel.
@@ -197,6 +198,7 @@ Current verified state:
 - Token user matches `TWITCH_BROADCASTER_ID` for `feyredarrling`.
 - Token has `channel:read:redemptions`.
 - A test-mode EventSub WebSocket subscription succeeded.
+- Twitch pull Discord embeds now use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as a local test fallback.
 - Linked live test redeem routed to `user_cards`.
 - Unlinked live test redeem routed to `twitch_user_cards`.
 - Twitch chat unlinked message links directly to the Discord test channel.

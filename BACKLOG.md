@@ -28,6 +28,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Automatic Twitch-to-Discord merge was verified with real test rows.
 - Repeat merge returned zero merged cards and did not duplicate the collection.
 - EventSub accepts live `Pull:` reward titles and test `TEST Pull:` reward titles.
+- Twitch pull Discord embeds use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as the local test fallback.
 
 ## Bugs And Risks
 
@@ -106,6 +107,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Testing uses `.env.test`, test Supabase, test Discord bot, and test Discord channel.
 - `.env.test` uses local port `3001` for the Express callback because port `3000` is used by another local bot.
 - The Twitch Developer Console app includes `http://localhost:3001/auth/twitch/callback`.
+- Production must set `TWITCH_PULL_DISCORD_CHANNEL_ID` to the real Discord channel for Twitch pull embeds before enabling EventSub.
 
 ### Account Linking
 

@@ -26,6 +26,22 @@ Production uses `.env`.
 
 Do not run production unintentionally. Confirm the intended environment before running commands that connect to Discord, Twitch, or Supabase.
 
+Before merging Twitch work into `main` and enabling production redeems, confirm production `.env` points at:
+
+```text
+SUPABASE_URL=<production Supabase project>
+SUPABASE_SERVICE_ROLE_KEY=<production Supabase service role>
+DISCORD_TOKEN=<production Discord bot token>
+DISCORD_CLIENT_ID=<production Discord app client ID>
+ALLOWED_CHANNEL_IDS=<production Discord command channel IDs>
+TWITCH_PULL_DISCORD_CHANNEL_ID=<production Discord channel for Twitch pull embeds>
+TWITCH_CHAT_CHANNEL=<production Twitch channel>
+TWITCH_BROADCASTER_ID=<production Twitch broadcaster ID>
+TWITCH_EVENTSUB_ENABLED=true
+```
+
+Do not copy `.env.test` values into production.
+
 ## Current Test Feature Flags
 
 Expected `.env.test` flags:
@@ -35,6 +51,7 @@ TWITCH_CHAT_ENABLED=true
 OVERLAY_ENABLED=false
 OVERLAY_MODE=log
 TWITCH_EVENTSUB_ENABLED=false
+TWITCH_PULL_DISCORD_CHANNEL_ID=<test Discord channel ID>
 ```
 
 Do not enable `TWITCH_EVENTSUB_ENABLED` unless specifically testing Twitch redeems.

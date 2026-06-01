@@ -90,6 +90,9 @@ const OVERLAY_DISPLAY_MS = Number(process.env.OVERLAY_DISPLAY_MS || 9000);
 const PORT = process.env.PORT || 3000;
 const TWITCH_REDIRECT_URI = process.env.TWITCH_REDIRECT_URI;
 const TWITCH_LINK_TTL_MS = 10 * 60 * 1000;
+const TWITCH_PULL_DISCORD_CHANNEL_ID =
+  process.env.TWITCH_PULL_DISCORD_CHANNEL_ID ||
+  process.env.DISCORD_TEST_CHANNEL_ID;
 
 
 // Economy settings.
@@ -920,6 +923,18 @@ async function postToTwitchChat(message) {
 
 
 /**
+ * Fetches the Discord channel where Twitch pull embeds should be posted.
+ */
+async function fetchTwitchPullDiscordChannel() {
+  if (!TWITCH_PULL_DISCORD_CHANNEL_ID) {
+    throw new Error('TWITCH_PULL_DISCORD_CHANNEL_ID is required when Twitch redeems are enabled.');
+  }
+
+  return client.channels.fetch(TWITCH_PULL_DISCORD_CHANNEL_ID);
+}
+
+
+/**
  * Handles overlay payload output.
  * Currently only logs locally for testing.
  */
@@ -1006,7 +1021,7 @@ function connectToTwitchEventSub() {
         return;
       }
 
-      const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+      const channel = await fetchTwitchPullDiscordChannel();
       await channel.send('🎴 Twitch redeem listener is online.');
 
       return;
@@ -1038,7 +1053,7 @@ function connectToTwitchEventSub() {
       const pulledCard = lorcana.getRandomCardFromSet(setName);
 
       if (!pulledCard) {
-        const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+        const channel = await fetchTwitchPullDiscordChannel();
         await channel.send(`❌ No cards found for set: ${setName}`);
         return;
       }
@@ -1091,7 +1106,7 @@ function connectToTwitchEventSub() {
 
         await handleOverlayData(overlayData);
 
-        const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+        const channel = await fetchTwitchPullDiscordChannel();
         const discordChannelUrl =
           channel.url || `https://discord.com/channels/${channel.guildId}/${channel.id}`;
 
@@ -1137,7 +1152,7 @@ function connectToTwitchEventSub() {
 
       await handleOverlayData(overlayData);
 
-      const channel = await client.channels.fetch(process.env.DISCORD_TEST_CHANNEL_ID);
+      const channel = await fetchTwitchPullDiscordChannel();
       await channel.send({ embeds: [embed] });
 
       await postToTwitchChat(
