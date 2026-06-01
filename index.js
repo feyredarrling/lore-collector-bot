@@ -69,6 +69,9 @@ const mothersDayPool = cards.filter(card =>
   MOTHERS_DAY_CARD_NAMES.includes(card.name)
 );
 
+const COLLECTION_SET_CHOICES = [...new Set(cards.map(card => card.set).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b));
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -84,7 +87,22 @@ const pendingCollections = new Map();
 const commands = [
   new SlashCommandBuilder().setName('daily').setDescription('Claim your daily card and Ink for this server'),
   new SlashCommandBuilder().setName('balance').setDescription('Check your Ink balance'),
-  new SlashCommandBuilder().setName('collection').setDescription('View your Lorcana collection binder'),
+  new SlashCommandBuilder()
+    .setName('collection')
+    .setDescription('View your Lorcana collection binder')
+    .addStringOption(option =>
+      option
+        .setName('set')
+        .setDescription('Show only one Lorcana set')
+        .setRequired(false)
+        .addChoices(
+          { name: 'All Sets', value: 'all' },
+          ...COLLECTION_SET_CHOICES.map(setName => ({
+            name: setName,
+            value: setName
+          }))
+        )
+    ),
   new SlashCommandBuilder().setName('dupes').setDescription('View your duplicate Lorcana cards'),
   new SlashCommandBuilder().setName('leaderboard').setDescription('View top collectors and richest players'),
   new SlashCommandBuilder().setName('pack').setDescription('Choose and open a Lorcana card pack'),
@@ -675,6 +693,49 @@ function formatLeaderboardList(data, label) {
     .join('\n');
 }
 
+function getCollectionFilterLabel(selectedSet) {
+  return selectedSet ? selectedSet : 'All Sets';
+}
+
+function getSelectedCollectionSet(interaction) {
+  const selectedSet = interaction.options.getString('set');
+
+  if (!selectedSet || selectedSet === 'all') {
+    return null;
+  }
+
+  if (!COLLECTION_SET_CHOICES.includes(selectedSet)) {
+    return null;
+  }
+
+  return selectedSet;
+}
+
+function buildCollectionDetails(ownedCards, selectedSet = null) {
+  return ownedCards
+    .map(ownedCard => {
+      const cardInfo = getCardById(ownedCard.card_id);
+      if (!cardInfo || !cardInfo.image) return null;
+      if (selectedSet && cardInfo.set !== selectedSet) return null;
+
+      return {
+        id: ownedCard.card_id,
+        name: cardInfo.name,
+        rarity: cardInfo.rarity || 'Unknown',
+        ink: cardInfo.ink || 'Unknown',
+        set: cardInfo.set || 'Unknown',
+        image: cardInfo.image,
+        quantity: ownedCard.quantity
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
+      if (rarityDiff !== 0) return rarityDiff;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 function getCollectionPageData(collectionDetails, page) {
   const totalCards = collectionDetails.reduce((sum, card) => sum + card.quantity, 0);
   const uniqueCards = collectionDetails.length;
@@ -692,7 +753,7 @@ function getCollectionPageData(collectionDetails, page) {
   };
 }
 
-async function createCollectionReply(userId, username, collectionDetails, page) {
+async function createCollectionReply(userId, username, collectionDetails, page, selectedSet = null) {
   const pageData = getCollectionPageData(collectionDetails, page);
   const imageBuffer = await createCollectionImage(pageData.pageCards);
 
@@ -701,6 +762,7 @@ async function createCollectionReply(userId, username, collectionDetails, page) 
   });
 
   const content =
+    `Set: **${getCollectionFilterLabel(selectedSet)}**\n` +
     `Here is your Lorcana binder, ${username} 🎴\n` +
     `Total Cards: **${pageData.totalCards}** • Unique Cards: **${pageData.uniqueCards}**\n` +
     `Page **${pageData.page + 1}** of **${pageData.totalPages}**`;
@@ -863,7 +925,8 @@ client.on('interactionCreate', async interaction => {
           ownerId,
           interaction.user.username,
           collectionData.cards,
-          collectionData.page
+          collectionData.page,
+          collectionData.selectedSet
         );
 
         await interaction.editReply({
@@ -903,7 +966,8 @@ client.on('interactionCreate', async interaction => {
           ownerId,
           interaction.user.username,
           collectionData.cards,
-          collectionData.page
+          collectionData.page,
+          collectionData.selectedSet
         );
 
         await interaction.editReply({
@@ -1385,6 +1449,7 @@ if (randomCard.rarity === 'Enchanted') {
       await interaction.deferReply();
 
       const userId = interaction.user.id;
+      const selectedSet = getSelectedCollectionSet(interaction);
 
       const { data: ownedCards, error } = await supabase
         .from('user_cards')
@@ -1400,39 +1465,27 @@ if (randomCard.rarity === 'Enchanted') {
         return;
       }
 
-      const collectionDetails = ownedCards
-        .map(ownedCard => {
-          const cardInfo = getCardById(ownedCard.card_id);
-          if (!cardInfo || !cardInfo.image) return null;
+      const collectionDetails = buildCollectionDetails(ownedCards, selectedSet);
 
-          return {
-            id: ownedCard.card_id,
-            name: cardInfo.name,
-            rarity: cardInfo.rarity || 'Unknown',
-            ink: cardInfo.ink || 'Unknown',
-            set: cardInfo.set || 'Unknown',
-            image: cardInfo.image,
-            quantity: ownedCard.quantity
-          };
-        })
-        .filter(Boolean);
-
-      collectionDetails.sort((a, b) => {
-        const rarityDiff = (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
-        if (rarityDiff !== 0) return rarityDiff;
-        return a.name.localeCompare(b.name);
-      });
+      if (collectionDetails.length === 0) {
+        await interaction.editReply(
+          `You do not have any cards from **${getCollectionFilterLabel(selectedSet)}** yet.`
+        );
+        return;
+      }
 
       pendingCollections.set(userId, {
         cards: collectionDetails,
-        page: 0
+        page: 0,
+        selectedSet
       });
 
       const reply = await createCollectionReply(
         userId,
         interaction.user.username,
         collectionDetails,
-        0
+        0,
+        selectedSet
       );
 
       await interaction.editReply(reply);
