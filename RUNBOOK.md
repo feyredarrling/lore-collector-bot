@@ -92,6 +92,27 @@ Avoid:
 - Changing Twitch reward configuration.
 - Running production bot settings.
 
+## Twitch Channel Point Reward Names
+
+Live Lorcana pull rewards should use this title shape:
+
+```text
+Pull: The First Chapter
+Pull: Rise of the Floodborn
+Pull: Into the Inklands
+Pull: Ursula's Return
+Pull: Shimmering Skies
+Pull: Azurite Sea
+```
+
+Test rewards with this shape are still accepted for controlled testing:
+
+```text
+TEST Pull: The First Chapter
+```
+
+The bot ignores channel point rewards that do not start with `Pull:` or `TEST Pull:`.
+
 ## Suggested Preflight Checks
 
 Before risky testing:

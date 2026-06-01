@@ -27,6 +27,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Unlinked Twitch chat messages include the direct Discord channel URL where the pull embed appears.
 - Automatic Twitch-to-Discord merge was verified with real test rows.
 - Repeat merge returned zero merged cards and did not duplicate the collection.
+- EventSub accepts live `Pull:` reward titles and test `TEST Pull:` reward titles.
 
 ## Bugs And Risks
 
@@ -64,11 +65,12 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 ### Twitch Features
 
 - Add Link Twitch button to Twitch pull embeds.
-- Additional Twitch redeem types:
+- Create live Twitch channel point rewards:
   - First Chapter Pack.
   - Rise of the Floodborn.
   - Into the Inklands.
   - Ursula's Return.
+  - Shimmering Skies.
   - Azurite Sea.
   - Future sets.
 - Seasonal packs:

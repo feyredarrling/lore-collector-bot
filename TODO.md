@@ -15,6 +15,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Add a missing cards command.
 - Improve collection summaries with duplicate count and total ink value.
 - Improve the OAuth success page.
+- Create live Twitch channel point rewards named with `Pull:`.
 
 ## Later
 
@@ -54,3 +55,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Test merge behavior when an unlinked Twitch user links later.
 - Verify repeat merge does not duplicate cards.
 - Treat missing test Supabase `announcements` table as a non-blocking warning.
+- Accept live `Pull:` reward titles while keeping `TEST Pull:` for tests.

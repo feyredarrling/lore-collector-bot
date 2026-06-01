@@ -624,6 +624,10 @@ function getSetFromRewardTitle(rewardTitle) {
   return null;
 }
 
+function isLorcanaPullReward(rewardTitle) {
+  return /^test pull:/i.test(rewardTitle) || /^pull:/i.test(rewardTitle);
+}
+
 /**
  * Builds the Twitch OAuth authorization URL.
  * Users visit this link to securely connect their Twitch account.
@@ -773,9 +777,9 @@ function connectToTwitchEventSub() {
 
       console.log('Redeem received:', viewerName, rewardTitle);
 
-      const isLorcanaTestReward = rewardTitle.startsWith('TEST Pull:');
+      const isLorcanaReward = isLorcanaPullReward(rewardTitle);
 
-      if (!isLorcanaTestReward) {
+      if (!isLorcanaReward) {
         console.log(`Ignoring non-Lorcana reward: ${rewardTitle}`);
         return;
       }
@@ -783,7 +787,7 @@ function connectToTwitchEventSub() {
       const setName = getSetFromRewardTitle(rewardTitle);
 
       if (!setName) {
-        console.log(`Ignoring unknown Lorcana test reward: ${rewardTitle}`);
+        console.log(`Ignoring unknown Lorcana reward: ${rewardTitle}`);
         return;
       }
 

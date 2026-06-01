@@ -79,6 +79,7 @@ Completed:
 - Automatic Twitch-to-Discord merge was verified with real test rows.
 - Re-running the Twitch-to-Discord merge helper merged zero cards, confirming no duplicate merge on repeat.
 - Missing test Supabase `announcements` table is now treated as a non-blocking announcement warning.
+- EventSub now accepts live reward titles starting with `Pull:` while still accepting `TEST Pull:` for testing.
 
 Pending:
 
@@ -198,3 +199,4 @@ Current verified state:
 - Twitch chat unlinked message links directly to the Discord test channel.
 - Automatic merge moved two Twitch-held cards into the linked Discord collection.
 - Repeat merge returned `mergedCount: 0`.
+- Live channel point rewards should be named like `Pull: The First Chapter`.
