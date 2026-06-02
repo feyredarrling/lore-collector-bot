@@ -1021,9 +1021,6 @@ function connectToTwitchEventSub() {
         return;
       }
 
-      const channel = await fetchTwitchPullDiscordChannel();
-      await channel.send('🎴 Twitch redeem listener is online.');
-
       return;
     }
 

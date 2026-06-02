@@ -344,12 +344,12 @@ node index.js
 5. Expected success signs:
 
 - Console logs `Subscribed to Twitch Channel Point redeems.`
-- Test Discord receives `Twitch redeem listener is online.`
+- Discord does not receive a startup message; startup success is logged only in the console.
 
 6. Expected failure signs:
 
 - Console logs `Twitch subscription error:`
-- Test Discord does not receive the online message.
+- Console does not log `Subscribed to Twitch Channel Point redeems.`
 
 7. After testing, set:
 
