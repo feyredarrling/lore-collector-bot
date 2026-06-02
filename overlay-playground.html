@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Lore Collector Overlay Playground</title>
+  <style>
+    :root {
+      --gold: #f4c76b;
+      --gold-bright: #ffe6a0;
+      --ink: #120a1d;
+      --plum: #2b1646;
+      --violet: #a45cff;
+      --panel: rgba(16, 9, 30, 0.92);
+      --panel-soft: rgba(49, 24, 78, 0.88);
+      --shadow: rgba(0, 0, 0, 0.48);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        url("overlay-background.png") center / cover no-repeat,
+        linear-gradient(135deg, rgba(24, 18, 36, 0.9), rgba(5, 7, 12, 0.9)),
+        repeating-linear-gradient(
+          45deg,
+          rgba(255, 255, 255, 0.06),
+          rgba(255, 255, 255, 0.06) 20px,
+          rgba(255, 255, 255, 0.02) 20px,
+          rgba(255, 255, 255, 0.02) 40px
+        );
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+    }
+
+    body {
+      position: relative;
+      padding: 36px;
+    }
+
+    .stage-label {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 2;
+      margin: 0;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.58);
+      color: rgba(255, 255, 255, 0.86);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .stage-label::after {
+      content: " - background file: overlay-background.png";
+    }
+
+    .controls {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+    }
+
+    .controls button {
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.62);
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .controls button:hover {
+      background: rgba(34, 34, 34, 0.82);
+    }
+
+    .pull {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(500px, calc(100vw - 72px));
+      display: grid;
+      grid-template-columns: 1fr;
+      justify-items: center;
+      gap: 12px;
+      padding: 0;
+      background: transparent;
+      opacity: 0;
+      transform: translate(-50%, -44%);
+      transition: opacity 360ms ease, transform 360ms ease;
+    }
+
+    .pull.show {
+      opacity: 1;
+      transform: translate(-50%, -50%);
+    }
+
+    .card-image {
+      width: min(300px, 36vw, 42vh);
+      aspect-ratio: 734 / 1024;
+      border: 3px solid var(--gold);
+      border-radius: 18px;
+      object-fit: cover;
+      background: #21182d;
+      box-shadow:
+        0 0 0 6px rgba(18, 10, 29, 0.78),
+        0 0 34px rgba(244, 199, 107, 0.38),
+        0 24px 70px var(--shadow);
+    }
+
+    .pull > div {
+      width: 100%;
+      position: relative;
+      padding: 12px 16px 14px;
+      border: 2px solid rgba(244, 199, 107, 0.86);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(61, 28, 95, 0.72), rgba(12, 8, 26, 0.96)),
+        radial-gradient(circle at 50% 0%, rgba(164, 92, 255, 0.28), transparent 48%);
+      text-align: center;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      margin: -24px 0 7px;
+      padding: 4px 15px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #f7e6c7;
+      font-style:italic;
+    }
+
+    .card-name {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(18px, 2.8vw, 28px);
+      line-height: 0.95;
+      font-weight: 900;
+      color: var(--gold-bright);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 9px;
+      margin-top: 20px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .pill {
+      min-width: 92px;
+      padding: 5px 8px;
+      border: 2px solid rgba(164, 92, 255, 0.82);
+      border-radius: 7px;
+      color: #f5dcff;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 18px; }
+
+      .pull {
+        width: calc(100vw - 36px);
+        gap: 12px;
+      }
+
+      .card-image { width: min(230px, 58vw, 40vh); }
+      .eyebrow { font-size: 10px; }
+      .card-name { font-size: 21px; }
+      .meta { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <p class="stage-label">Local overlay playground</p>
+
+  <section id="pull" class="pull" aria-live="polite">
+    <img id="cardImage" class="card-image" alt="">
+    <div>
+      <p id="eyebrow" class="eyebrow"></p>
+      <h1 id="cardName" class="card-name"></h1>
+      <div class="meta">
+        <span id="rarity" class="pill"></span>
+        <span id="setName" class="pill"></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="controls">
+    <button type="button" id="showButton">Show Pull</button>
+    <button type="button" id="hideButton">Hide</button>
+  </div>
+
+  <script>
+    const samplePulls = [
+      {
+        username: 'FeyreDarrling',
+        rarityEmoji: 'Legendary',
+        setName: 'Rise of the Floodborn',
+        card: {
+          name: 'Alice - Growing Girl',
+          rarity: 'Legendary',
+          image: 'https://cards.lorcast.io/card/digital/large/crd_297bfc741b2c4c01b430258d55aef604.avif?1709690747'
+        }
+      },
+      {
+        username: 'TheLoreCollectorBot',
+        rarityEmoji: 'Enchanted',
+        setName: 'The First Chapter',
+        card: {
+          name: 'Aladdin - Heroic Outlaw',
+          rarity: 'Enchanted',
+          image: 'https://cards.lorcast.io/card/digital/large/crd_7c621010e3e6471d9916eee4bcd0b11d.avif?1709690747'
+        }
+      }
+    ];
+
+    const pull = document.getElementById('pull');
+    const cardImage = document.getElementById('cardImage');
+    const eyebrow = document.getElementById('eyebrow');
+    const cardName = document.getElementById('cardName');
+    const rarity = document.getElementById('rarity');
+    const setName = document.getElementById('setName');
+    const showButton = document.getElementById('showButton');
+    const hideButton = document.getElementById('hideButton');
+    let sampleIndex = 0;
+
+    function showPull(data) {
+      const card = data.card || {};
+      cardImage.src = card.image || '';
+      cardImage.alt = card.name || 'Pulled Lorcana card';
+      eyebrow.textContent = (data.username || 'Someone') + ' pulled';
+      cardName.textContent = card.name || 'Unknown Card';
+      rarity.textContent = (data.rarityEmoji || '') + ' ' + (card.rarity || 'Unknown');
+      setName.textContent = data.setName || card.set || 'Unknown Set';
+      pull.classList.add('show');
+    }
+
+    function showNextSample() {
+      showPull(samplePulls[sampleIndex]);
+      sampleIndex = (sampleIndex + 1) % samplePulls.length;
+    }
+
+    showButton.addEventListener('click', showNextSample);
+    hideButton.addEventListener('click', () => pull.classList.remove('show'));
+    showNextSample();
+  </script>
+</body>
+</html>

@@ -87,6 +87,7 @@ Completed:
 - Production Twitch OAuth linking works through the Railway callback URL.
 - Production Twitch redeem test passed with Twitch chat response, Discord embed, database save, and OBS overlay.
 - Production Supabase tables `linked_accounts` and `twitch_user_cards` were added for the Twitch flow.
+- Twitch OAuth callback now shows styled success and error pages instead of plain text.
 
 Pending:
 
@@ -94,7 +95,6 @@ Pending:
 - `/unlinktwitch`.
 - `/twitchcollection`.
 - `/setprogress` and missing-card views.
-- Improved OAuth success page.
 
 ## Important Safety Rule
 
@@ -167,7 +167,7 @@ Production callback:
 https://lore-collector-bot-production.up.railway.app/auth/twitch/callback
 ```
 
-The current success page is plain text.
+The callback page is styled for successful links and known error states.
 
 OAuth link requests use a short-lived in-memory nonce. If the bot restarts after a user clicks the Discord link but before Twitch redirects back, the callback asks the user to return to Discord and try again.
 

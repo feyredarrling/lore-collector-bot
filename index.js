@@ -314,10 +314,6 @@ function createOverlayHtml() {
       background:
         linear-gradient(180deg, rgba(61, 28, 95, 0.72), rgba(12, 8, 26, 0.96)),
         radial-gradient(circle at 50% 0%, rgba(164, 92, 255, 0.28), transparent 48%);
-      box-shadow:
-        0 0 0 2px rgba(76, 37, 114, 0.7),
-        0 0 28px rgba(164, 92, 255, 0.34),
-        0 18px 54px var(--shadow);
       text-align: center;
     }
 
@@ -325,18 +321,16 @@ function createOverlayHtml() {
       display: inline-block;
       margin: -24px 0 7px;
       padding: 4px 15px;
-      border: 2px solid rgba(244, 199, 107, 0.82);
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(55, 28, 92, 0.96), rgba(19, 10, 34, 0.96));
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 700;
       color: #f7e6c7;
+      font-style:italic;
     }
 
     .card-name {
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(18px, 2.8vw, 26px);
+      font-size: clamp(18px, 2.8vw, 28px);
       line-height: 0.95;
       font-weight: 900;
       color: var(--gold-bright);
@@ -347,10 +341,9 @@ function createOverlayHtml() {
       flex-wrap: wrap;
       justify-content: center;
       gap: 9px;
-      margin-top: 10px;
+      margin-top: 20px;
       font-size: 10px;
-      font-weight: 900;
-      text-transform: uppercase;
+      font-weight: 700;
     }
 
     .pill {
@@ -358,9 +351,7 @@ function createOverlayHtml() {
       padding: 5px 8px;
       border: 2px solid rgba(164, 92, 255, 0.82);
       border-radius: 7px;
-      background: linear-gradient(180deg, rgba(63, 28, 96, 0.92), rgba(29, 12, 48, 0.94));
       color: #f5dcff;
-      box-shadow: inset 0 0 16px rgba(164, 92, 255, 0.22);
     }
 
     @media (max-width: 640px) {
@@ -422,6 +413,166 @@ function createOverlayHtml() {
 </html>`;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function createTwitchLinkResultHtml({
+  status = 'success',
+  eyebrow = 'The Lore Collector',
+  title,
+  message,
+  details = [],
+  action = 'You can return to Discord now.'
+}) {
+  const isSuccess = status === 'success';
+  const statusColor = isSuccess ? 'var(--success)' : 'var(--error)';
+  const detailItems = details
+    .filter(Boolean)
+    .map(item => `<li>${escapeHtml(item)}</li>`)
+    .join('');
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title || 'Twitch Link Status')}</title>
+  <style>
+    :root {
+      --bg: #171322;
+      --panel: rgba(34, 27, 48, 0.94);
+      --panel-strong: rgba(22, 18, 32, 0.98);
+      --border: #d9c78f;
+      --gold: #f4d37c;
+      --text: #f8f0dc;
+      --muted: #c9bdd8;
+      --success: #38d675;
+      --error: #ff6b7d;
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(135deg, rgba(16, 12, 24, 0.96), rgba(31, 24, 45, 0.98)),
+        radial-gradient(circle at 50% 0%, rgba(244, 211, 124, 0.14), transparent 46%);
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 28px;
+    }
+
+    main {
+      width: min(620px, 100%);
+      padding: 28px;
+      border: 2px solid rgba(217, 199, 143, 0.82);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(49, 39, 68, 0.88), var(--panel-strong));
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      text-align: center;
+    }
+
+    .mark {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 16px;
+      border: 2px solid var(--status);
+      border-radius: 50%;
+      color: var(--status);
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--gold);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(28px, 7vw, 46px);
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .message {
+      margin: 16px auto 0;
+      max-width: 48ch;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    ul {
+      width: min(440px, 100%);
+      margin: 22px auto 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    li {
+      padding: 10px 12px;
+      border: 1px solid rgba(217, 199, 143, 0.34);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .action {
+      margin: 24px 0 0;
+      padding-top: 18px;
+      border-top: 1px solid rgba(217, 199, 143, 0.26);
+      color: var(--gold);
+      font-weight: 800;
+    }
+
+    @media (max-width: 520px) {
+      body { padding: 18px; }
+      main { padding: 22px 18px; }
+      h1 { font-size: 30px; }
+      .message { font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <main style="--status: ${statusColor};">
+    <div class="mark" aria-hidden="true">${isSuccess ? '&check;' : '!'}</div>
+    <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+    <h1>${escapeHtml(title || 'Twitch Link Status')}</h1>
+    <p class="message">${escapeHtml(message || '')}</p>
+    ${detailItems ? `<ul>${detailItems}</ul>` : ''}
+    <p class="action">${escapeHtml(action)}</p>
+  </main>
+</body>
+</html>`;
+}
+
 app.get('/', (req, res) => {
   res.send('The Lore Collector bot is running 🎴');
 });
@@ -477,12 +628,22 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (error) {
       console.error('Twitch OAuth error:', error, error_description);
-      res.status(400).send('Twitch authorization was canceled or failed.');
+      res.status(400).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Link Canceled',
+        message: 'Twitch authorization was canceled or could not be completed.',
+        action: 'Return to Discord and start the link again when you are ready.'
+      }));
       return;
     }
 
     if (!code || !state) {
-      res.status(400).send('Missing Twitch authorization code or Discord state.');
+      res.status(400).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Missing Link Details',
+        message: 'The Twitch callback did not include the details needed to finish linking.',
+        action: 'Return to Discord and try the Link Twitch Account button again.'
+      }));
       return;
     }
 
@@ -490,7 +651,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (!pendingLink || pendingLink.expiresAt < Date.now()) {
       pendingTwitchLinks.delete(state);
-      res.status(400).send('This Twitch link request expired. Please return to Discord and try again.');
+      res.status(400).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Link Expired',
+        message: 'This Twitch link request expired before it could be completed.',
+        action: 'Return to Discord and press Link Twitch Account again.'
+      }));
       return;
     }
 
@@ -516,7 +682,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (!tokenResponse.ok) {
       console.error('Twitch token exchange failed:', tokenData);
-      res.status(500).send('Twitch token exchange failed.');
+      res.status(500).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Twitch Verification Failed',
+        message: 'Twitch responded, but the bot could not verify the authorization code.',
+        action: 'Please try linking again. If it keeps happening, contact the channel owner.'
+      }));
       return;
     }
 
@@ -532,7 +703,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (!userResponse.ok || !userData.data || userData.data.length === 0) {
       console.error('Twitch user lookup failed:', userData);
-      res.status(500).send('Could not verify Twitch user.');
+      res.status(500).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Could Not Verify Twitch',
+        message: 'The bot could not confirm which Twitch account authorized the link.',
+        action: 'Please try linking again from Discord.'
+      }));
       return;
     }
 
@@ -562,7 +738,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (linkError) {
       console.error('Failed to save linked Twitch account:', linkError);
-      res.status(500).send('Twitch account verified, but saving the link failed.');
+      res.status(500).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Link Save Failed',
+        message: 'Twitch verified your account, but the bot could not save the Discord connection.',
+        action: 'Please contact the channel owner before trying again.'
+      }));
       return;
     }
 
@@ -577,20 +758,33 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     if (!mergeResult.success) {
       console.error('Failed to merge Twitch collection.');
-      res.status(500).send(
-        'Twitch account linked, but merging your saved Twitch cards failed. Please contact the channel owner before linking again.'
-      );
+      res.status(500).send(createTwitchLinkResultHtml({
+        status: 'error',
+        title: 'Merge Failed',
+        message: 'Your Twitch account linked, but merging your saved Twitch cards failed.',
+        action: 'Please contact the channel owner before linking again.'
+      }));
       return;
     }
 
-    res.send(
-      `🎴 Twitch account ${twitchUser.display_name} linked successfully!\n\n` +
-      `Merged ${mergeResult.mergedCount} Twitch card(s) into your Discord collection.\n\n` +
-      `You can now return to Discord.`
-    );
+    res.send(createTwitchLinkResultHtml({
+      status: 'success',
+      title: 'Twitch Linked',
+      message: `${twitchUser.display_name} is now connected to your Discord collection.`,
+      details: [
+        `Merged ${mergeResult.mergedCount} Twitch card(s) into your Discord collection.`,
+        'Future Twitch pulls will save to your Discord collection automatically.'
+      ],
+      action: 'You can return to Discord now.'
+    }));
   } catch (error) {
     console.error('Twitch OAuth callback failed:', error);
-    res.status(500).send('Something went wrong while linking Twitch.');
+    res.status(500).send(createTwitchLinkResultHtml({
+      status: 'error',
+      title: 'Something Went Wrong',
+      message: 'Something went wrong while linking Twitch.',
+      action: 'Please return to Discord and try again.'
+    }));
   }
 });
 

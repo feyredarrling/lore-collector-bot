@@ -36,6 +36,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Railway production OAuth linking uses `https://lore-collector-bot-production.up.railway.app/auth/twitch/callback`.
 - Production OBS overlay uses `https://lore-collector-bot-production.up.railway.app/overlay`.
 - Production Supabase has `linked_accounts` and `twitch_user_cards`.
+- Twitch OAuth callback now shows styled success and error pages instead of plain text.
 
 ## Bugs And Risks
 
@@ -253,15 +254,14 @@ Reason:
 Current:
 
 ```text
-Twitch account linked successfully.
+Styled callback page for Twitch link success and known error states.
 ```
 
 Future possibilities:
 
-- Styled page.
 - Auto-close.
 - Redirect back to Discord.
-- Better instructions.
+- Further copy tweaks.
 
 ### Collection Features
 

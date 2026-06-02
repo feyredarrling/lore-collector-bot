@@ -13,7 +13,6 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Add `/setprogress` with completion percentage, missing cards, unique owned, and total owned.
 - Add a missing cards command.
 - Improve collection summaries with duplicate count and total ink value.
-- Improve the OAuth success page.
 
 ## Later
 
@@ -65,3 +64,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Add production Supabase `linked_accounts` and `twitch_user_cards`.
 - Fix production OAuth redirect to Railway callback URL.
 - Verify production redeem end to end: EventSub, Twitch chat response, Discord embed, database save, OAuth linking, and OBS overlay.
+- Improve the OAuth callback page with styled Twitch link success and error states.
