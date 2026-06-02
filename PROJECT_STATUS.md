@@ -204,4 +204,5 @@ Current verified state:
 - Twitch chat unlinked message links directly to the Discord test channel.
 - Automatic merge moved two Twitch-held cards into the linked Discord collection.
 - Repeat merge returned `mergedCount: 0`.
-- Live channel point rewards should be named like `Pull: The First Chapter`.
+- Live channel point rewards have been created with `Pull:` names and are currently disabled while streaming.
+- Remaining production launch check is one low-cost live redeem after stream, with EventSub enabled only for that intentional check.

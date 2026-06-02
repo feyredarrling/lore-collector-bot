@@ -15,7 +15,6 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Add a missing cards command.
 - Improve collection summaries with duplicate count and total ink value.
 - Improve the OAuth success page.
-- Create live Twitch channel point rewards named with `Pull:`.
 - Before production launch, set `TWITCH_PULL_DISCORD_CHANNEL_ID` to the real Discord pull channel and confirm production Supabase env vars.
 
 ## Later
@@ -59,3 +58,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Route Twitch pull Discord embeds through `TWITCH_PULL_DISCORD_CHANNEL_ID` instead of hardcoding the test channel.
 - Build OBS/browser-source overlay transport.
 - Add Twitch launch checklist for production env and first redeem verification.
+- Create live Twitch channel point rewards named with `Pull:`; rewards are currently disabled while live.

@@ -29,6 +29,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Repeat merge returned zero merged cards and did not duplicate the collection.
 - EventSub accepts live `Pull:` reward titles and test `TEST Pull:` reward titles.
 - Twitch pull Discord embeds use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as the local test fallback.
+- Live Twitch channel point rewards have been created and are currently disabled while streaming.
 
 ## Bugs And Risks
 
@@ -66,14 +67,8 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 ### Twitch Features
 
 - Add Link Twitch button to Twitch pull embeds.
-- Create live Twitch channel point rewards:
-  - First Chapter Pack.
-  - Rise of the Floodborn.
-  - Into the Inklands.
-  - Ursula's Return.
-  - Shimmering Skies.
-  - Azurite Sea.
-  - Future sets.
+- Run the first production redeem check after stream with one low-cost `Pull:` reward.
+- Add future set channel point rewards as new Lorcana sets are supported.
 - Seasonal packs:
   - Mother's Day.
   - Father's Day.
