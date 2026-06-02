@@ -19,6 +19,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Decide whether `twitch-redeem-test.js` should be deleted, renamed, or kept as legacy reference.
 - Move more shared collection logic from `index.js` into `lib/lorcana.js`.
 - Document deployment assumptions for the Express callback route.
+- Improve duplicate pull wording and quantity display in Discord embeds and the OBS overlay.
 - Add more Twitch redeem types for set-specific packs.
 - Plan seasonal packs for Father's Day, release days, and holidays.
 - Explore trading, marketplace, collection export, multi-streamer, and SaaS directions.

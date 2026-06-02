@@ -70,6 +70,10 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Collection summary improvements:
   - Duplicate count in the main collection summary.
   - Total ink value.
+- Improve duplicate pull feedback:
+  - Make Discord pull embeds clearly say when a card is a duplicate.
+  - Show updated quantity more prominently for duplicate pulls.
+  - Consider adding duplicate/new status to the OBS overlay.
 
 ### Twitch Features
 
