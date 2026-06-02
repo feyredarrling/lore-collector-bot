@@ -42,6 +42,35 @@ TWITCH_EVENTSUB_ENABLED=true
 
 Do not copy `.env.test` values into production.
 
+## Twitch Launch Checklist
+
+Use this only when you are not live or when you are ready for an intentional production launch window.
+
+Before merging to `main`:
+
+- Confirm `twitch-redeem-testing` is clean and up to date with `main`.
+- Confirm `.env.test` still points at test Supabase, test Discord, and port `3001`.
+- Confirm the Twitch reward names use `Pull:` exactly.
+- Confirm OBS has a browser source pointed at `/overlay` with a transparent background.
+
+Before enabling production EventSub:
+
+- Confirm production Supabase env vars are set in the production host.
+- Confirm production Discord bot token and client ID are set.
+- Confirm `ALLOWED_CHANNEL_IDS` contains the real command channels.
+- Confirm `TWITCH_PULL_DISCORD_CHANNEL_ID` is the real Discord channel for Twitch pull embeds.
+- Confirm `TWITCH_CHAT_CHANNEL` and `TWITCH_BROADCASTER_ID` are the real Twitch channel.
+- Confirm the production Twitch token has `channel:read:redemptions`.
+- Set `TWITCH_EVENTSUB_ENABLED=true` only for the intended production launch.
+
+First production check:
+
+- Redeem one low-cost `Pull:` reward while not in an active stream moment.
+- Confirm Twitch chat response appears.
+- Confirm Discord receives the card embed in the real pull channel.
+- Confirm OBS shows the card overlay.
+- If anything looks wrong, set `TWITCH_EVENTSUB_ENABLED=false` before debugging.
+
 ## Current Test Feature Flags
 
 Expected `.env.test` flags:

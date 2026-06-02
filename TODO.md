@@ -25,7 +25,6 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Document deployment assumptions for the Express callback route.
 - Add more Twitch redeem types for set-specific packs.
 - Plan seasonal packs for Father's Day, release days, and holidays.
-- Build OBS/browser-source overlay transport.
 - Explore trading, marketplace, collection export, multi-streamer, and SaaS directions.
 
 ## Done
@@ -58,3 +57,5 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Treat missing test Supabase `announcements` table as a non-blocking warning.
 - Accept live `Pull:` reward titles while keeping `TEST Pull:` for tests.
 - Route Twitch pull Discord embeds through `TWITCH_PULL_DISCORD_CHANNEL_ID` instead of hardcoding the test channel.
+- Build OBS/browser-source overlay transport.
+- Add Twitch launch checklist for production env and first redeem verification.
