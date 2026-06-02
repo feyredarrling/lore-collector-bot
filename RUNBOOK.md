@@ -26,7 +26,25 @@ Production uses `.env`.
 
 Do not run production unintentionally. Confirm the intended environment before running commands that connect to Discord, Twitch, or Supabase.
 
-Before merging Twitch work into `main` and enabling production redeems, confirm production `.env` points at:
+Railway production is deployed at:
+
+```text
+https://lore-collector-bot-production.up.railway.app
+```
+
+Production OAuth callback:
+
+```text
+https://lore-collector-bot-production.up.railway.app/auth/twitch/callback
+```
+
+Production OBS overlay:
+
+```text
+https://lore-collector-bot-production.up.railway.app/overlay
+```
+
+Confirm Railway Variables point at:
 
 ```text
 SUPABASE_URL=<production Supabase project>
@@ -44,6 +62,9 @@ TWITCH_CHAT_USERNAME=<Twitch bot account username>
 TWITCH_CHAT_OAUTH=<Twitch bot chat OAuth token>
 TWITCH_CHAT_CHANNEL=<production Twitch channel>
 TWITCH_BROADCASTER_ID=<production Twitch broadcaster ID>
+TWITCH_CHAT_ENABLED=true
+OVERLAY_ENABLED=true
+OVERLAY_MODE=browser
 TWITCH_EVENTSUB_ENABLED=true
 ```
 
@@ -51,11 +72,11 @@ Do not copy `.env.test` values into production.
 
 ## Twitch Launch Checklist
 
-Use this only when you are not live or when you are ready for an intentional production launch window.
+Use this when changing production Twitch behavior.
 
-Before merging to `main`:
+Before changing production code:
 
-- Confirm `twitch-redeem-testing` is clean and up to date with `main`.
+- Confirm `main` is clean and up to date with `origin/main`.
 - Confirm `.env.test` still points at test Supabase, test Discord, and port `3001`.
 - Confirm the Twitch reward names use `Pull:` exactly.
 - Confirm OBS has a browser source pointed at `/overlay` with a transparent background.
@@ -79,6 +100,8 @@ First production check:
 - Confirm Discord receives the card embed in the real pull channel.
 - Confirm OBS shows the card overlay.
 - If anything looks wrong, set `TWITCH_EVENTSUB_ENABLED=false` before debugging.
+
+The production launch test passed on 2026-06-02.
 
 ## Current Test Feature Flags
 
@@ -138,6 +161,12 @@ The browser-source overlay is served by the same Express server:
 http://localhost:3001/overlay
 ```
 
+Production overlay URL:
+
+```text
+https://lore-collector-bot-production.up.railway.app/overlay
+```
+
 For local testing, start the bot with:
 
 ```powershell
@@ -153,7 +182,17 @@ Trigger a preview event without using Twitch redeems:
 http://localhost:3001/overlay/test
 ```
 
+Production preview endpoint:
+
+```text
+https://lore-collector-bot-production.up.railway.app/overlay/test
+```
+
 OBS should use a transparent browser source. The overlay listens for Twitch pull events and displays the viewer name, card image, card name, rarity, set, and new/quantity status.
+
+If Railway logs show `Overlay event sent to 0 client(s).`, OBS is not connected to the Railway overlay URL.
+
+If Railway logs show `Overlay disabled. Would have shown:`, set `OVERLAY_ENABLED=true`.
 
 ## Safe Testing While Live
 
@@ -229,6 +268,45 @@ Expected output:
 Twitch merge test passed.
 ```
 
+## Production Supabase Twitch Tables
+
+Production needs these tables for Twitch redeems and account linking:
+
+```sql
+create table if not exists public.linked_accounts (
+  discord_user_id text primary key,
+  twitch_user_id text not null unique,
+  twitch_username text not null,
+  linked_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.twitch_user_cards (
+  id bigserial primary key,
+  twitch_user_id text not null,
+  twitch_username text not null,
+  card_id text not null,
+  quantity integer not null default 1,
+  first_pulled_at timestamptz not null default now(),
+  last_pulled_at timestamptz not null default now(),
+  merged_to_discord_user_id text,
+  merged_at timestamptz
+);
+
+create unique index if not exists twitch_user_cards_twitch_user_card_key
+on public.twitch_user_cards (twitch_user_id, card_id);
+
+create index if not exists twitch_user_cards_unmerged_idx
+on public.twitch_user_cards (twitch_user_id)
+where merged_at is null;
+```
+
+This migration was applied to production during launch testing on 2026-06-02 after Railway logs showed:
+
+```text
+Could not find the table 'public.linked_accounts' in the schema cache
+```
+
 ## EventSub Token Runbook
 
 Use this when fixing or testing Twitch Channel Point redeem listening.
@@ -239,15 +317,19 @@ Previous blocker:
 Invalid OAuth token
 ```
 
-Status as of 2026-06-01:
+Status as of 2026-06-02:
 
 - `.env.test` has a repaired broadcaster user access token.
+- `.env.test` has a broadcaster refresh token.
+- Railway has production `TWITCH_ACCESS_TOKEN` and `TWITCH_REFRESH_TOKEN`.
 - Validation passed for the current `TWITCH_CLIENT_ID`.
 - Validation passed for the configured `TWITCH_BROADCASTER_ID`.
 - Validation confirmed `channel:read:redemptions`.
 - A test-mode EventSub subscription smoke test succeeded.
+- Railway production EventSub subscription succeeded.
 - Linked live test redeem validation succeeded.
 - Unlinked live test redeem validation succeeded.
+- Final Railway production redeem validation succeeded.
 - Unlinked Twitch chat messages include a direct Discord channel URL.
 - Automatic Twitch-to-Discord merge moved real test Twitch rows into the linked Discord collection.
 - Repeat merge returned zero merged cards and did not duplicate the collection.
@@ -324,7 +406,7 @@ redirect_uri=TWITCH_REDIRECT_URI
 
 Save the returned access token as `TWITCH_ACCESS_TOKEN` in `.env.test` first.
 
-If Twitch returns a refresh token, keep it somewhere private. Do not commit it.
+Save the returned refresh token as `TWITCH_REFRESH_TOKEN` in `.env.test` and Railway. Do not commit it.
 
 ### Safe EventSub Test
 
@@ -363,13 +445,17 @@ TWITCH_EVENTSUB_ENABLED=false
 
 ### Verified Redeem Results
 
-As of 2026-06-01:
+As of 2026-06-02:
 
 - Linked `TEST Pull:` redeem saved to `user_cards`.
 - Unlinked `TEST Pull:` redeem saved to `twitch_user_cards`.
 - Unlinked chat response included the direct Discord channel URL for the pull embed.
 - Re-link/merge behavior was verified by calling the same merge helper used by the OAuth callback.
 - A second merge call returned `mergedCount: 0`.
+- Production Railway EventSub subscribed successfully.
+- Production Twitch chat connected as `TheLoreCollectorBot`.
+- Production OAuth linking worked through the Railway callback.
+- Production `Pull:` redeem posted Twitch chat response, Discord embed, database save, and OBS overlay.
 
 ### Sources
 

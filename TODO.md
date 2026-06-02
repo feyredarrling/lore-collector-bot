@@ -4,18 +4,16 @@ This is the short working list. Pick one item and keep the chat focused on it.
 
 ## Highest Priority
 
-- Decide whether to keep `TWITCH_EVENTSUB_ENABLED=false` as the manual safety switch or add a safer test/start script.
 - Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
+- Add `/unlinktwitch`.
+- Add `/twitchcollection` so users can view Twitch-held cards before linking.
 
 ## Next Feature Choices
 
-- Add `/unlinktwitch`.
-- Add `/twitchcollection` so users can view Twitch-held cards before linking.
 - Add `/setprogress` with completion percentage, missing cards, unique owned, and total owned.
 - Add a missing cards command.
 - Improve collection summaries with duplicate count and total ink value.
 - Improve the OAuth success page.
-- Before production launch, set `TWITCH_PULL_DISCORD_CHANNEL_ID` to the real Discord pull channel and confirm production Supabase env vars.
 
 ## Later
 
@@ -58,4 +56,12 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Route Twitch pull Discord embeds through `TWITCH_PULL_DISCORD_CHANNEL_ID` instead of hardcoding the test channel.
 - Build OBS/browser-source overlay transport.
 - Add Twitch launch checklist for production env and first redeem verification.
-- Create live Twitch channel point rewards named with `Pull:`; rewards are currently disabled while live.
+- Create live Twitch channel point rewards named with `Pull:`.
+- Merge Twitch work to `main` and deploy to Railway production.
+- Add Railway `npm start` script.
+- Remove Discord startup message for EventSub listener.
+- Add Twitch access token refresh support with `TWITCH_REFRESH_TOKEN`.
+- Configure Railway Twitch chat credentials so replies come from `TheLoreCollectorBot`.
+- Add production Supabase `linked_accounts` and `twitch_user_cards`.
+- Fix production OAuth redirect to Railway callback URL.
+- Verify production redeem end to end: EventSub, Twitch chat response, Discord embed, database save, OAuth linking, and OBS overlay.

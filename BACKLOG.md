@@ -4,9 +4,9 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 
 ## Must Do Next
 
-- Decide whether to keep `TWITCH_EVENTSUB_ENABLED=false` as the manual safety switch or add a safer test/start script.
 - Build `/unlinktwitch`.
 - Build `/twitchcollection` so users can view Twitch-held cards before linking.
+- Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
 
 ## Completed / Already Implemented
 
@@ -29,17 +29,23 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Repeat merge returned zero merged cards and did not duplicate the collection.
 - EventSub accepts live `Pull:` reward titles and test `TEST Pull:` reward titles.
 - Twitch pull Discord embeds use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as the local test fallback.
-- Live Twitch channel point rewards have been created and are currently disabled while streaming.
+- Live Twitch channel point rewards have been created with `Pull:` names.
+- Twitch production launch passed on Railway on 2026-06-02.
+- Railway production bot connects to Twitch chat as `TheLoreCollectorBot`.
+- Railway production EventSub subscribes after refreshing the broadcaster access token.
+- Railway production OAuth linking uses `https://lore-collector-bot-production.up.railway.app/auth/twitch/callback`.
+- Production OBS overlay uses `https://lore-collector-bot-production.up.railway.app/overlay`.
+- Production Supabase has `linked_accounts` and `twitch_user_cards`.
 
 ## Bugs And Risks
 
-- EventSub remains disabled by default with `TWITCH_EVENTSUB_ENABLED=false`.
-- EventSub token is time-limited and may need regeneration before a later test window.
-- Previous EventSub error was `Invalid OAuth token`.
+- Local EventSub testing remains disabled by default with `TWITCH_EVENTSUB_ENABLED=false`.
+- Production EventSub can stay enabled when Twitch rewards are intentionally active.
+- Previous EventSub error was `Invalid OAuth token`; fixed by regenerating access/refresh tokens and adding refresh at startup.
 - OAuth linking works independently from EventSub.
 - Merge logic exists but has not been tested with large Twitch collections.
 - Repeated linking and unlinking beyond the verified repeat-merge helper path still needs full UX testing.
-- Twitch pulls after linking have been verified once in test mode, but should be checked again before production enablement.
+- Twitch pulls after linking have been verified in production.
 
 ## Still Pending
 
@@ -67,7 +73,6 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 ### Twitch Features
 
 - Add Link Twitch button to Twitch pull embeds.
-- Run the first production redeem check after stream with one low-cost `Pull:` reward.
 - Add future set channel point rewards as new Lorcana sets are supported.
 - Seasonal packs:
   - Mother's Day.
@@ -77,7 +82,6 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 
 ### Overlay System
 
-- OBS/browser source transport.
 - Stream pull feed.
 - Real-time recent pulls overlay.
 
@@ -102,7 +106,8 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Testing uses `.env.test`, test Supabase, test Discord bot, and test Discord channel.
 - `.env.test` uses local port `3001` for the Express callback because port `3000` is used by another local bot.
 - The Twitch Developer Console app includes `http://localhost:3001/auth/twitch/callback`.
-- Production must set `TWITCH_PULL_DISCORD_CHANNEL_ID` to the real Discord channel for Twitch pull embeds before enabling EventSub.
+- The Twitch Developer Console app includes `https://lore-collector-bot-production.up.railway.app/auth/twitch/callback`.
+- Production Railway uses the service variables for Twitch, Discord, Supabase, and overlay settings.
 
 ### Account Linking
 

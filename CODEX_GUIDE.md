@@ -16,6 +16,13 @@ Use these files as the project memory:
 - `TODO.md`: prioritized next tasks.
 - `SCHEMA.md`: Supabase table assumptions.
 
+Current baseline after Twitch launch:
+
+- Work is on `main`.
+- Railway production is deployed from `main`.
+- Twitch redeems, OAuth linking, Twitch chat replies, Discord embeds, production Supabase writes, and OBS overlay passed end-to-end on 2026-06-02.
+- Start future work from the next feature list in `TODO.md` and `BACKLOG.md`.
+
 When starting a new Codex thread, say:
 
 ```text

@@ -17,13 +17,13 @@ The long-term goal is that a user's Discord collection and Twitch collection bec
 
 ## Current Branch
 
-Active development is on:
+Active production branch is:
 
 ```text
-twitch-redeem-testing
+main
 ```
 
-Do not assume `main` contains the latest Twitch linking work.
+The Twitch redeem integration was merged and pushed to `main`.
 
 ## Main Files
 
@@ -63,7 +63,7 @@ Completed:
 - `/balance` integration for linked and unlinked Twitch state.
 - Unified runtime architecture in `index.js`.
 - Test Supabase `linked_accounts.discord_user_id` duplicate check returned no rows, and the test unique index was added.
-- EventSub online message now only posts after the Twitch redeem subscription succeeds.
+- EventSub startup no longer posts a Discord message; startup success is logged only in Railway/local logs.
 - Linked Twitch redeems no longer overwrite the Discord user's stored username.
 - Twitch collection merge now reports failure if cards cannot be added or rows cannot be marked merged.
 - `test-twitch-merge.js` covers Twitch-held card merge quantities and confirms a second merge does not duplicate cards.
@@ -82,16 +82,19 @@ Completed:
 - EventSub now accepts live reward titles starting with `Pull:` while still accepting `TEST Pull:` for testing.
 - OBS browser-source overlay route added at `/overlay`.
 - Overlay preview endpoint added at `/overlay/test`.
+- Twitch production launch path passed end to end on Railway on 2026-06-02.
+- Production Railway bot connects to Discord, Twitch chat, and Twitch EventSub.
+- Production Twitch OAuth linking works through the Railway callback URL.
+- Production Twitch redeem test passed with Twitch chat response, Discord embed, database save, and OBS overlay.
+- Production Supabase tables `linked_accounts` and `twitch_user_cards` were added for the Twitch flow.
 
 Pending:
 
-- Production Supabase `linked_accounts.discord_user_id` duplicate check and unique index.
 - Transactional Supabase merge RPC for fully atomic Twitch-to-Discord collection merging.
 - `/unlinktwitch`.
 - `/twitchcollection`.
 - `/setprogress` and missing-card views.
 - Improved OAuth success page.
-- Final overlay styling and OBS sizing pass.
 
 ## Important Safety Rule
 
@@ -128,7 +131,7 @@ TWITCH_EVENTSUB_ENABLED=false
 TWITCH_PULL_DISCORD_CHANNEL_ID=<test Discord channel ID>
 ```
 
-`TWITCH_EVENTSUB_ENABLED=false` is intentional. Do not re-enable automatically. Only enable it when specifically testing Twitch redeems and when it is safe to affect the Twitch channel.
+For local testing, `TWITCH_EVENTSUB_ENABLED=false` is intentional. Do not re-enable automatically. In Railway production, `TWITCH_EVENTSUB_ENABLED=true` is the launch setting when Twitch rewards are intended to be active.
 
 ## OAuth Linking
 
@@ -158,6 +161,12 @@ Local callback:
 http://localhost:3001/auth/twitch/callback
 ```
 
+Production callback:
+
+```text
+https://lore-collector-bot-production.up.railway.app/auth/twitch/callback
+```
+
 The current success page is plain text.
 
 OAuth link requests use a short-lived in-memory nonce. If the bot restarts after a user clicks the Discord link but before Twitch redirects back, the callback asks the user to return to Discord and try again.
@@ -182,9 +191,9 @@ Current intended redeem behavior:
 
 ## Current Twitch Status
 
-EventSub credential repair is complete for `.env.test`.
+EventSub credential repair is complete for `.env.test` and Railway production.
 
-`TWITCH_EVENTSUB_ENABLED=false` remains intentional outside planned test windows so live Twitch redeems are not handled accidentally during normal development.
+Local `.env.test` should keep `TWITCH_EVENTSUB_ENABLED=false` outside planned tests. Railway production can keep `TWITCH_EVENTSUB_ENABLED=true` when Twitch rewards are intentionally available.
 
 Previous blocker:
 
@@ -201,10 +210,12 @@ Current verified state:
 - Twitch pull Discord embeds now use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as a local test fallback.
 - Production Twitch startup is controlled by `TWITCH_CHAT_ENABLED` and `TWITCH_EVENTSUB_ENABLED`; it no longer requires `BOT_MODE=test`.
 - EventSub can refresh the broadcaster token at startup when `TWITCH_REFRESH_TOKEN` is configured.
+- Railway production has `TWITCH_ACCESS_TOKEN`, `TWITCH_REFRESH_TOKEN`, Twitch chat credentials, and the Railway callback URL configured.
+- Railway production logs showed `Twitch access token refreshed.` and `Subscribed to Twitch Channel Point redeems.`
 - Linked live test redeem routed to `user_cards`.
 - Unlinked live test redeem routed to `twitch_user_cards`.
 - Twitch chat unlinked message links directly to the Discord test channel.
 - Automatic merge moved two Twitch-held cards into the linked Discord collection.
 - Repeat merge returned `mergedCount: 0`.
-- Live channel point rewards have been created with `Pull:` names and are currently disabled while streaming.
-- Remaining production launch check is one low-cost live redeem after stream, with EventSub enabled only for that intentional check.
+- Live channel point rewards have been created with `Pull:` names.
+- Final production redeem test passed: Twitch chat response, Discord embed, database save, OAuth link flow, and OBS overlay all worked.

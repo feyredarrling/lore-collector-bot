@@ -23,6 +23,11 @@ Known fields used by the code include:
 
 Stores Discord-to-Twitch account links.
 
+Status:
+
+- Exists in production and test.
+- Production table was added during Twitch launch testing on 2026-06-02.
+
 Columns:
 
 - `discord_user_id`
@@ -35,6 +40,7 @@ Known constraint:
 
 - Unique index exists on `twitch_user_id`.
 - Test database has a unique index on `discord_user_id`.
+- Production uses `discord_user_id` as the primary key.
 
 Current code upserts with:
 
@@ -42,7 +48,7 @@ Current code upserts with:
 onConflict: discord_user_id
 ```
 
-Production still needs the duplicate check and `discord_user_id` unique index before this flow goes live.
+Production no longer needs a separate duplicate check before launch because `discord_user_id` is the primary key.
 
 Duplicate check:
 
@@ -65,6 +71,11 @@ Review this if relinking behavior changes.
 ## `twitch_user_cards`
 
 Stores Twitch pulls before a Twitch account is linked to Discord.
+
+Status:
+
+- Exists in production and test.
+- Production table was added during Twitch launch testing on 2026-06-02.
 
 Columns:
 
