@@ -34,6 +34,10 @@ SUPABASE_SERVICE_ROLE_KEY=<production Supabase service role>
 DISCORD_TOKEN=<production Discord bot token>
 DISCORD_CLIENT_ID=<production Discord app client ID>
 ALLOWED_CHANNEL_IDS=<production Discord command channel IDs>
+TWITCH_CLIENT_ID=<production Twitch app client ID>
+TWITCH_CLIENT_SECRET=<production Twitch app client secret>
+TWITCH_ACCESS_TOKEN=<production broadcaster token with channel:read:redemptions>
+TWITCH_REDIRECT_URI=<production OAuth callback URL>
 TWITCH_PULL_DISCORD_CHANNEL_ID=<production Discord channel for Twitch pull embeds>
 TWITCH_CHAT_CHANNEL=<production Twitch channel>
 TWITCH_BROADCASTER_ID=<production Twitch broadcaster ID>
@@ -58,6 +62,7 @@ Before enabling production EventSub:
 - Confirm production Supabase env vars are set in the production host.
 - Confirm production Discord bot token and client ID are set.
 - Confirm `ALLOWED_CHANNEL_IDS` contains the real command channels.
+- Confirm `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_ACCESS_TOKEN`, and `TWITCH_REDIRECT_URI` are production values.
 - Confirm `TWITCH_PULL_DISCORD_CHANNEL_ID` is the real Discord channel for Twitch pull embeds.
 - Confirm `TWITCH_CHAT_CHANNEL` and `TWITCH_BROADCASTER_ID` are the real Twitch channel.
 - Confirm the production Twitch token has `channel:read:redemptions`.
