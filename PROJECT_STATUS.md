@@ -199,6 +199,8 @@ Current verified state:
 - Token has `channel:read:redemptions`.
 - A test-mode EventSub WebSocket subscription succeeded.
 - Twitch pull Discord embeds now use `TWITCH_PULL_DISCORD_CHANNEL_ID`, with `DISCORD_TEST_CHANNEL_ID` only as a local test fallback.
+- Production Twitch startup is controlled by `TWITCH_CHAT_ENABLED` and `TWITCH_EVENTSUB_ENABLED`; it no longer requires `BOT_MODE=test`.
+- EventSub can refresh the broadcaster token at startup when `TWITCH_REFRESH_TOKEN` is configured.
 - Linked live test redeem routed to `user_cards`.
 - Unlinked live test redeem routed to `twitch_user_cards`.
 - Twitch chat unlinked message links directly to the Discord test channel.

@@ -79,9 +79,11 @@ const { createClient } = require('@supabase/supabase-js');
 // These keep Twitch chat and overlay behavior controlled by .env / .env.test.
 
 const TWITCH_CHAT_ENABLED = process.env.TWITCH_CHAT_ENABLED === 'true';
+const TWITCH_EVENTSUB_ENABLED = process.env.TWITCH_EVENTSUB_ENABLED === 'true';
 const OVERLAY_ENABLED = process.env.OVERLAY_ENABLED === 'true';
 const OVERLAY_MODE = process.env.OVERLAY_MODE || 'log';
 const OVERLAY_DISPLAY_MS = Number(process.env.OVERLAY_DISPLAY_MS || 9000);
+let twitchAccessToken = process.env.TWITCH_ACCESS_TOKEN;
 
 
 // Web server settings used for Twitch OAuth callbacks.
@@ -832,17 +834,16 @@ client.once('clientReady', async () => {
     5 * 60 * 1000
   );
 
-  if (process.env.BOT_MODE === 'test') {
-    if (TWITCH_CHAT_ENABLED) {
-      await twitchChatClient.connect();
-      console.log('Twitch chat client connected.');
-    }
+  if (TWITCH_CHAT_ENABLED) {
+    await twitchChatClient.connect();
+    console.log('Twitch chat client connected.');
+  }
 
-    if (process.env.TWITCH_EVENTSUB_ENABLED === 'true') {
-      connectToTwitchEventSub();
-    } else {
-      console.log('Twitch EventSub disabled by TWITCH_EVENTSUB_ENABLED.');
-    }
+  if (TWITCH_EVENTSUB_ENABLED) {
+    await refreshTwitchAccessTokenIfConfigured();
+    connectToTwitchEventSub();
+  } else {
+    console.log('Twitch EventSub disabled by TWITCH_EVENTSUB_ENABLED.');
   }
 });
 
@@ -961,15 +962,64 @@ async function handleOverlayData(data) {
 
 
 /**
+ * Refreshes the broadcaster access token when a refresh token is configured.
+ * This keeps EventSub startup from depending on a short-lived access token.
+ */
+async function refreshTwitchAccessTokenIfConfigured() {
+  if (!process.env.TWITCH_REFRESH_TOKEN) {
+    return;
+  }
+
+  const params = new URLSearchParams({
+    client_id: process.env.TWITCH_CLIENT_ID,
+    client_secret: process.env.TWITCH_CLIENT_SECRET,
+    grant_type: 'refresh_token',
+    refresh_token: process.env.TWITCH_REFRESH_TOKEN
+  });
+
+  const response = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('Twitch token refresh failed:', {
+      error: data.error,
+      status: data.status,
+      message: data.message
+    });
+    throw new Error('Could not refresh Twitch access token.');
+  }
+
+  twitchAccessToken = data.access_token;
+
+  if (data.refresh_token && data.refresh_token !== process.env.TWITCH_REFRESH_TOKEN) {
+    console.log('Twitch returned a new refresh token; update TWITCH_REFRESH_TOKEN in the production environment.');
+  }
+
+  console.log('Twitch access token refreshed.');
+}
+
+
+/**
  * Subscribes this bot session to Twitch channel point redeems.
  * Twitch sends redeem events through the active EventSub WebSocket session.
  */
 async function subscribeToChannelPointRedeems(sessionId) {
+  if (!twitchAccessToken) {
+    throw new Error('TWITCH_ACCESS_TOKEN is required when Twitch EventSub is enabled.');
+  }
+
   const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
     method: 'POST',
     headers: {
       'Client-ID': process.env.TWITCH_CLIENT_ID,
-      Authorization: `Bearer ${process.env.TWITCH_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${twitchAccessToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
