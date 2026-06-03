@@ -354,6 +354,17 @@ function createOverlayHtml() {
       color: #f5dcff;
     }
 
+    .new-badge {
+      min-width: 64px;
+      border-color: rgba(244, 199, 107, 0.96);
+      color: var(--gold-bright);
+      background: rgba(244, 199, 107, 0.14);
+    }
+
+    .new-badge[hidden] {
+      display: none;
+    }
+
     @media (max-width: 640px) {
       body { padding: 18px; }
 
@@ -376,6 +387,7 @@ function createOverlayHtml() {
       <p id="eyebrow" class="eyebrow"></p>
       <h1 id="cardName" class="card-name"></h1>
       <div class="meta">
+        <span id="newBadge" class="pill new-badge" hidden>NEW</span>
         <span id="rarity" class="pill"></span>
         <span id="setName" class="pill"></span>
       </div>
@@ -388,6 +400,7 @@ function createOverlayHtml() {
     const cardImage = document.getElementById('cardImage');
     const eyebrow = document.getElementById('eyebrow');
     const cardName = document.getElementById('cardName');
+    const newBadge = document.getElementById('newBadge');
     const rarity = document.getElementById('rarity');
     const setName = document.getElementById('setName');
     let hideTimer = null;
@@ -398,6 +411,7 @@ function createOverlayHtml() {
       cardImage.alt = card.name || 'Pulled Lorcana card';
       eyebrow.textContent = (data.username || 'Someone') + ' pulled';
       cardName.textContent = card.name || 'Unknown Card';
+      newBadge.hidden = !data.isNew;
       rarity.textContent = (data.rarityEmoji || '') + ' ' + (card.rarity || 'Unknown');
       setName.textContent = data.setName || card.set || 'Unknown Set';
 

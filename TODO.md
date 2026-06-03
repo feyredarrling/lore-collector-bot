@@ -71,3 +71,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Refund `itzelw` (`412795824280436757`) 250 Ink after the failed Premium Pack reveal.
 - Add `Pull: Fabled` support for Twitch redeems.
 - Confirm `jennoras`'s failed `Pull: Fabled` redeem was ignored before saving a card, requiring a Twitch channel point refund/retry.
+- Add a `NEW` badge to the OBS overlay when a Twitch pull is new to the user's collection.
