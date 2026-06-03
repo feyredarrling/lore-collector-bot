@@ -4,7 +4,6 @@ This is the short working list. Pick one item and keep the chat focused on it.
 
 ## Highest Priority
 
-- Improve the OBS overlay on branch `codex/overlay`.
 - Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
 - Add `/unlinktwitch`.
 - Add `/twitchcollection` so users can view Twitch-held cards before linking.
@@ -72,3 +71,4 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Add `Pull: Fabled` support for Twitch redeems.
 - Confirm `jennoras`'s failed `Pull: Fabled` redeem was ignored before saving a card, requiring a Twitch channel point refund/retry.
 - Add a `NEW` badge to the OBS overlay when a Twitch pull is new to the user's collection.
+- Tune the OBS overlay card layout and mirror it in `overlay-playground.html`.

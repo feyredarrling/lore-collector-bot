@@ -188,7 +188,9 @@ Production preview endpoint:
 https://lore-collector-bot-production.up.railway.app/overlay/test
 ```
 
-OBS should use a transparent browser source. The overlay listens for Twitch pull events and displays the viewer name, card image, card name, rarity, set, and new/quantity status.
+OBS should use a transparent browser source. The overlay listens for Twitch pull events and displays the viewer name, card image, card name, rarity, set, and a `NEW` badge when the pulled card is new to the user's linked Discord or unlinked Twitch collection.
+
+`overlay-playground.html` is the local visual playground for overlay CSS. Keep any layout changes there synced back into `createOverlayHtml()` in `index.js` before deploying.
 
 If Railway logs show `Overlay event sent to 0 client(s).`, OBS is not connected to the Railway overlay URL.
 
@@ -465,6 +467,7 @@ As of 2026-06-03:
 - `itzelw` (`412795824280436757`) was refunded 250 Ink for the failed Premium Pack reveal.
 - `Pull: Fabled` is supported and maps to the `Fabled` card set.
 - `jennoras`'s first `Pull: Fabled` redeem was ignored before saving because the reward title was unmapped; refund through Twitch and retry after deploy.
+- Overlay `NEW` badge and card layout tuning were merged to `main`.
 
 ### Sources
 

@@ -39,6 +39,8 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Twitch OAuth callback now shows styled success and error pages instead of plain text.
 - Pack reveal buttons use `lorcana.rarityEmoji` and no longer crash on reveal.
 - Twitch reward `Pull: Fabled` routes to the `Fabled` card set.
+- OBS overlay shows `NEW` for new Twitch pulls.
+- OBS overlay layout was tuned and mirrored in `overlay-playground.html`.
 
 ## Bugs And Risks
 
@@ -76,7 +78,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Improve duplicate pull feedback:
   - Make Discord pull embeds clearly say when a card is a duplicate.
   - Show updated quantity more prominently for duplicate pulls.
-  - Consider adding duplicate/new status to the OBS overlay.
+  - Consider adding duplicate/quantity status to the OBS overlay.
 
 ### Twitch Features
 
@@ -90,9 +92,9 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 
 ### Overlay System
 
-- Improve the current OBS/browser-source overlay on branch `codex/overlay`.
 - Stream pull feed.
 - Real-time recent pulls overlay.
+- Further visual polish after live OBS review.
 
 ### Future Major Features
 

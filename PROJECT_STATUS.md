@@ -23,13 +23,7 @@ Active production branch is:
 main
 ```
 
-The Twitch redeem integration and June 3 production bug fixes were merged and pushed to `main`.
-
-Current local work branch for overlay work is:
-
-```text
-codex/overlay
-```
+The Twitch redeem integration, June 3 production bug fixes, and overlay updates were merged and pushed to `main`.
 
 ## Main Files
 
@@ -98,6 +92,9 @@ Completed:
 - User `itzelw` (`412795824280436757`) was refunded 250 Ink after the Premium Pack reveal crash; balance changed from 40 to 290 Ink.
 - Twitch reward `Pull: Fabled` now maps to the `Fabled` card set after `jennoras` hit `Ignoring unknown Lorcana reward: Pull: Fabled`.
 - `jennoras`'s failed `Pull: Fabled` redeem was ignored before card selection/save, so no Supabase row was created for that failed pull.
+- OBS overlay now shows a `NEW` badge when a Twitch pull is new to the user's linked Discord or unlinked Twitch collection.
+- OBS overlay card layout was tuned from the playground: smaller card image, narrower info panel, tighter panel padding, and slightly smaller card title max size.
+- `overlay-playground.html` mirrors the live overlay layout/new-badge behavior for local visual iteration.
 
 Pending:
 
@@ -105,7 +102,6 @@ Pending:
 - `/unlinktwitch`.
 - `/twitchcollection`.
 - `/setprogress` and missing-card views.
-- Overlay improvements on branch `codex/overlay`.
 
 ## Important Safety Rule
 
@@ -231,3 +227,4 @@ Current verified state:
 - Live channel point rewards have been created with `Pull:` names.
 - Final production redeem test passed: Twitch chat response, Discord embed, database save, OAuth link flow, and OBS overlay all worked.
 - Production `Pull: Fabled` reward support was added on 2026-06-03 after the initial Fabled redeem was ignored as an unknown Lorcana reward.
+- Overlay `NEW` badge and layout tuning were merged to `main` on 2026-06-03.
