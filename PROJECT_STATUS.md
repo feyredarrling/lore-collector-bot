@@ -23,7 +23,13 @@ Active production branch is:
 main
 ```
 
-The Twitch redeem integration was merged and pushed to `main`.
+The Twitch redeem integration and June 3 production bug fixes were merged and pushed to `main`.
+
+Current local work branch for overlay work is:
+
+```text
+codex/overlay
+```
 
 ## Main Files
 
@@ -88,6 +94,10 @@ Completed:
 - Production Twitch redeem test passed with Twitch chat response, Discord embed, database save, and OBS overlay.
 - Production Supabase tables `linked_accounts` and `twitch_user_cards` were added for the Twitch flow.
 - Twitch OAuth callback now shows styled success and error pages instead of plain text.
+- Pack reveal buttons were fixed after production logs showed `ReferenceError: rarityEmoji is not defined` on 2026-06-03.
+- User `itzelw` (`412795824280436757`) was refunded 250 Ink after the Premium Pack reveal crash; balance changed from 40 to 290 Ink.
+- Twitch reward `Pull: Fabled` now maps to the `Fabled` card set after `jennoras` hit `Ignoring unknown Lorcana reward: Pull: Fabled`.
+- `jennoras`'s failed `Pull: Fabled` redeem was ignored before card selection/save, so no Supabase row was created for that failed pull.
 
 Pending:
 
@@ -95,6 +105,7 @@ Pending:
 - `/unlinktwitch`.
 - `/twitchcollection`.
 - `/setprogress` and missing-card views.
+- Overlay improvements on branch `codex/overlay`.
 
 ## Important Safety Rule
 
@@ -219,3 +230,4 @@ Current verified state:
 - Repeat merge returned `mergedCount: 0`.
 - Live channel point rewards have been created with `Pull:` names.
 - Final production redeem test passed: Twitch chat response, Discord embed, database save, OAuth link flow, and OBS overlay all worked.
+- Production `Pull: Fabled` reward support was added on 2026-06-03 after the initial Fabled redeem was ignored as an unknown Lorcana reward.

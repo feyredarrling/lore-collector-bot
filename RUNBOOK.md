@@ -222,6 +222,7 @@ Pull: Into the Inklands
 Pull: Ursula's Return
 Pull: Shimmering Skies
 Pull: Azurite Sea
+Pull: Fabled
 ```
 
 Test rewards with this shape are still accepted for controlled testing:
@@ -231,6 +232,7 @@ TEST Pull: The First Chapter
 ```
 
 The bot ignores channel point rewards that do not start with `Pull:` or `TEST Pull:`.
+The bot also ignores `Pull:` rewards whose set name is not mapped in `getSetFromRewardTitle()`; Railway will log `Ignoring unknown Lorcana reward: <title>` and no card will be saved.
 
 ## Suggested Preflight Checks
 
@@ -456,6 +458,13 @@ As of 2026-06-02:
 - Production Twitch chat connected as `TheLoreCollectorBot`.
 - Production OAuth linking worked through the Railway callback.
 - Production `Pull:` redeem posted Twitch chat response, Discord embed, database save, and OBS overlay.
+
+As of 2026-06-03:
+
+- Pack reveal buttons were fixed after `ReferenceError: rarityEmoji is not defined` crashed Premium Pack reveals.
+- `itzelw` (`412795824280436757`) was refunded 250 Ink for the failed Premium Pack reveal.
+- `Pull: Fabled` is supported and maps to the `Fabled` card set.
+- `jennoras`'s first `Pull: Fabled` redeem was ignored before saving because the reward title was unmapped; refund through Twitch and retry after deploy.
 
 ### Sources
 

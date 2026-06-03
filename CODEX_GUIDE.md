@@ -18,9 +18,10 @@ Use these files as the project memory:
 
 Current baseline after Twitch launch:
 
-- Work is on `main`.
+- Production work is on `main`; current local overlay work is on `codex/overlay`.
 - Railway production is deployed from `main`.
 - Twitch redeems, OAuth linking, Twitch chat replies, Discord embeds, production Supabase writes, and OBS overlay passed end-to-end on 2026-06-02.
+- June 3 production fixes on `main`: pack reveal buttons now use `lorcana.rarityEmoji`, and Twitch reward `Pull: Fabled` maps to the `Fabled` set.
 - Start future work from the next feature list in `TODO.md` and `BACKLOG.md`.
 
 When starting a new Codex thread, say:

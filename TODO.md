@@ -4,6 +4,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 
 ## Highest Priority
 
+- Improve the OBS overlay on branch `codex/overlay`.
 - Create a transactional Supabase RPC for Twitch-to-Discord collection merging.
 - Add `/unlinktwitch`.
 - Add `/twitchcollection` so users can view Twitch-held cards before linking.
@@ -66,3 +67,7 @@ This is the short working list. Pick one item and keep the chat focused on it.
 - Fix production OAuth redirect to Railway callback URL.
 - Verify production redeem end to end: EventSub, Twitch chat response, Discord embed, database save, OAuth linking, and OBS overlay.
 - Improve the OAuth callback page with styled Twitch link success and error states.
+- Fix pack reveal crash caused by bare `rarityEmoji` references in `index.js`.
+- Refund `itzelw` (`412795824280436757`) 250 Ink after the failed Premium Pack reveal.
+- Add `Pull: Fabled` support for Twitch redeems.
+- Confirm `jennoras`'s failed `Pull: Fabled` redeem was ignored before saving a card, requiring a Twitch channel point refund/retry.

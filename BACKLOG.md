@@ -37,6 +37,8 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Production OBS overlay uses `https://lore-collector-bot-production.up.railway.app/overlay`.
 - Production Supabase has `linked_accounts` and `twitch_user_cards`.
 - Twitch OAuth callback now shows styled success and error pages instead of plain text.
+- Pack reveal buttons use `lorcana.rarityEmoji` and no longer crash on reveal.
+- Twitch reward `Pull: Fabled` routes to the `Fabled` card set.
 
 ## Bugs And Risks
 
@@ -47,6 +49,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 - Merge logic exists but has not been tested with large Twitch collections.
 - Repeated linking and unlinking beyond the verified repeat-merge helper path still needs full UX testing.
 - Twitch pulls after linking have been verified in production.
+- New channel point reward titles must be added to `getSetFromRewardTitle()` or they will log `Ignoring unknown Lorcana reward` and no card will be saved.
 
 ## Still Pending
 
@@ -87,6 +90,7 @@ This file is the practical backlog index for The Lore Collector bot. Code is the
 
 ### Overlay System
 
+- Improve the current OBS/browser-source overlay on branch `codex/overlay`.
 - Stream pull feed.
 - Real-time recent pulls overlay.
 
