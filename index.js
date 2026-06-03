@@ -1659,7 +1659,7 @@ function createPackSummary(packItems) {
   return packItems
     .map(item => {
       const newText = item.isNew ? ' ✨ NEW' : '';
-      return `${rarityEmoji[item.card.rarity] || '🎴'} **${item.card.name}** — ${item.card.rarity} | ${item.card.ink}${newText}`;
+      return `${lorcana.rarityEmoji[item.card.rarity] || '🎴'} **${item.card.name}** — ${item.card.rarity} | ${item.card.ink}${newText}`;
     })
     .join('\n');
 }
@@ -2412,7 +2412,7 @@ client.on('interactionCreate', async interaction => {
       const isLastCard = packData.index >= packData.items.length;
 
       const embed = new EmbedBuilder()
-        .setTitle(`${rarityEmoji[currentCard.rarity] || '🎴'} ${currentCard.name}`)
+        .setTitle(`${lorcana.rarityEmoji[currentCard.rarity] || '🎴'} ${currentCard.name}`)
         .setDescription(
           `Card ${packData.index} of ${packData.items.length}\n\n${currentCard.rarity} | ${currentCard.ink} | ${currentCard.set}\n\n${getPullMessage(currentCard, currentItem.isNew)}`
         )
@@ -2973,7 +2973,7 @@ if (randomCard.rarity === 'Enchanted') {
 
       const dupeList = duplicateDetails
         .slice(0, 25)
-        .map(card => `${rarityEmoji[card.rarity] || '🎴'} **${card.name}** — x${card.quantity} | ${card.rarity} | ${card.ink}`)
+        .map(card => `${lorcana.rarityEmoji[card.rarity] || '🎴'} **${card.name}** — x${card.quantity} | ${card.rarity} | ${card.ink}`)
         .join('\n');
 
       const totalDupes = duplicateDetails.reduce(
