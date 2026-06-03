@@ -225,12 +225,18 @@ const client = new Client({
 
 const app = express();
 const overlayClients = new Set();
+const OVERLAY_HEARTBEAT_MS = 25000;
 
 function sendOverlayEvent(data) {
   const payload = `event: pull\ndata: ${JSON.stringify(data)}\n\n`;
 
-  for (const client of overlayClients) {
-    client.write(payload);
+  for (const client of [...overlayClients]) {
+    try {
+      client.write(payload);
+    } catch (error) {
+      overlayClients.delete(client);
+      console.error('Removing failed overlay client:', error);
+    }
   }
 }
 
@@ -420,8 +426,25 @@ function createOverlayHtml() {
       hideTimer = setTimeout(() => pull.classList.remove('show'), displayMs);
     }
 
-    const events = new EventSource('/overlay/events');
-    events.addEventListener('pull', event => showPull(JSON.parse(event.data)));
+    let events = null;
+    let reconnectTimer = null;
+
+    function connectOverlayEvents() {
+      clearTimeout(reconnectTimer);
+
+      if (events) {
+        events.close();
+      }
+
+      events = new EventSource('/overlay/events');
+      events.addEventListener('pull', event => showPull(JSON.parse(event.data)));
+      events.onerror = () => {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectOverlayEvents, 3000);
+      };
+    }
+
+    connectOverlayEvents();
   </script>
 </body>
 </html>`;
@@ -606,12 +629,25 @@ app.get('/overlay/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders?.();
 
+  res.write('retry: 3000\n');
   res.write('event: ready\ndata: {}\n\n');
   overlayClients.add(res);
 
+  const heartbeat = setInterval(() => {
+    try {
+      res.write('event: ping\ndata: {}\n\n');
+    } catch (error) {
+      clearInterval(heartbeat);
+      overlayClients.delete(res);
+      console.error('Overlay heartbeat failed:', error);
+    }
+  }, OVERLAY_HEARTBEAT_MS);
+
   req.on('close', () => {
+    clearInterval(heartbeat);
     overlayClients.delete(res);
   });
 });
