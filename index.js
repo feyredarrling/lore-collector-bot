@@ -1055,6 +1055,7 @@ function getSetFromRewardTitle(rewardTitle) {
   if (title.includes('ursula')) return "Ursula's Return";
   if (title.includes('shimmering skies')) return 'Shimmering Skies';
   if (title.includes('azurite sea')) return 'Azurite Sea';
+  if (title.includes('fabled')) return 'Fabled';
 
   return null;
 }
