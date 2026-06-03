@@ -118,6 +118,30 @@ async function main() {
 
   await cleanup();
 
+  await lorcana.addCardToTwitchCollection(
+    supabase,
+    TEST_TWITCH_USER_ID,
+    TEST_TWITCH_USERNAME,
+    firstCard.id
+  );
+
+  const missingUserMergeResult = await lorcana.mergeTwitchCollectionIntoDiscord(
+    supabase,
+    TEST_TWITCH_USER_ID,
+    TEST_DISCORD_USER_ID,
+    TEST_DISCORD_USERNAME
+  );
+
+  assert.deepStrictEqual(missingUserMergeResult, { success: true, mergedCount: 1 });
+
+  const createdUser = await lorcana.getUser(TEST_DISCORD_USER_ID);
+  assert.strictEqual(createdUser.username, TEST_DISCORD_USERNAME);
+
+  const mergedAfterMissingUser = await getUserCard(firstCard.id);
+  assert.strictEqual(mergedAfterMissingUser.quantity, 1);
+
+  await cleanup();
+
   console.log('Twitch merge test passed.');
 }
 

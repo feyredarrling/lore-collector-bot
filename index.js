@@ -676,6 +676,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     pendingTwitchLinks.delete(state);
     const discordUserId = pendingLink.discordUserId;
+    const discordUsername = pendingLink.discordUsername;
 
     // Exchanges the temporary Twitch authorization code for an access token.
     const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
@@ -767,7 +768,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
       supabase,
       twitchUser.id,
       discordUserId,
-      twitchUser.display_name
+      discordUsername || twitchUser.display_name
     );
 
     if (!mergeResult.success) {
@@ -1082,11 +1083,12 @@ function isLorcanaPullReward(rewardTitle) {
  * Builds the Twitch OAuth authorization URL.
  * Users visit this link to securely connect their Twitch account.
  */
-function createTwitchLinkState(discordUserId) {
+function createTwitchLinkState(discordUserId, discordUsername) {
   const state = crypto.randomBytes(24).toString('hex');
 
   pendingTwitchLinks.set(state, {
     discordUserId,
+    discordUsername,
     expiresAt: Date.now() + TWITCH_LINK_TTL_MS
   });
 
@@ -1103,9 +1105,9 @@ function cleanupExpiredTwitchLinks() {
   }
 }
 
-function buildTwitchOAuthUrl(discordUserId) {
+function buildTwitchOAuthUrl(discordUserId, discordUsername) {
   cleanupExpiredTwitchLinks();
-  const state = createTwitchLinkState(discordUserId);
+  const state = createTwitchLinkState(discordUserId, discordUsername);
 
   const params = new URLSearchParams({
     client_id: process.env.TWITCH_CLIENT_ID,
@@ -2239,7 +2241,7 @@ client.on('interactionCreate', async interaction => {
 // =====================================================
 
     if (interaction.customId === 'link_twitch_account') {
-      const oauthUrl = buildTwitchOAuthUrl(interaction.user.id);
+      const oauthUrl = buildTwitchOAuthUrl(interaction.user.id, interaction.user.username);
 
       await interaction.reply({
         content:
