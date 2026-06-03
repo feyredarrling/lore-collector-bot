@@ -109,7 +109,7 @@
     }
 
     .card-image {
-      width: min(300px, 36vw, 42vh);
+      width: min(230px, 36vw, 42vh);
       aspect-ratio: 734 / 1024;
       border: 3px solid var(--gold);
       border-radius: 18px;
@@ -122,9 +122,9 @@
     }
 
     .pull > div {
-      width: 100%;
+      width: 60%;
       position: relative;
-      padding: 12px 16px 14px;
+      padding: 12px 5px 14px;
       border: 2px solid rgba(244, 199, 107, 0.86);
       border-radius: 10px;
       background:
@@ -146,7 +146,7 @@
     .card-name {
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(18px, 2.8vw, 28px);
+      font-size: clamp(18px, 2.6vw, 26px);
       line-height: 0.95;
       font-weight: 900;
       color: var(--gold-bright);
@@ -168,6 +168,17 @@
       border: 2px solid rgba(164, 92, 255, 0.82);
       border-radius: 7px;
       color: #f5dcff;
+    }
+
+    .new-badge {
+      min-width: 64px;
+      border-color: rgba(244, 199, 107, 0.96);
+      color: var(--gold-bright);
+      background: rgba(244, 199, 107, 0.14);
+    }
+
+    .new-badge[hidden] {
+      display: none;
     }
 
     @media (max-width: 640px) {
@@ -194,6 +205,7 @@
       <p id="eyebrow" class="eyebrow"></p>
       <h1 id="cardName" class="card-name"></h1>
       <div class="meta">
+        <span id="newBadge" class="pill new-badge" hidden>NEW</span>
         <span id="rarity" class="pill"></span>
         <span id="setName" class="pill"></span>
       </div>
@@ -211,6 +223,7 @@
         username: 'FeyreDarrling',
         rarityEmoji: 'Legendary',
         setName: 'Rise of the Floodborn',
+        isNew: true,
         card: {
           name: 'Alice - Growing Girl',
           rarity: 'Legendary',
@@ -221,6 +234,7 @@
         username: 'TheLoreCollectorBot',
         rarityEmoji: 'Enchanted',
         setName: 'The First Chapter',
+        isNew: false,
         card: {
           name: 'Aladdin - Heroic Outlaw',
           rarity: 'Enchanted',
@@ -233,6 +247,7 @@
     const cardImage = document.getElementById('cardImage');
     const eyebrow = document.getElementById('eyebrow');
     const cardName = document.getElementById('cardName');
+    const newBadge = document.getElementById('newBadge');
     const rarity = document.getElementById('rarity');
     const setName = document.getElementById('setName');
     const showButton = document.getElementById('showButton');
@@ -245,6 +260,7 @@
       cardImage.alt = card.name || 'Pulled Lorcana card';
       eyebrow.textContent = (data.username || 'Someone') + ' pulled';
       cardName.textContent = card.name || 'Unknown Card';
+      newBadge.hidden = !data.isNew;
       rarity.textContent = (data.rarityEmoji || '') + ' ' + (card.rarity || 'Unknown');
       setName.textContent = data.setName || card.set || 'Unknown Set';
       pull.classList.add('show');

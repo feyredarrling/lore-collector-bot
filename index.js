@@ -293,7 +293,7 @@ function createOverlayHtml() {
     }
 
     .card-image {
-      width: min(300px, 36vw, 42vh);
+      width: min(230px, 36vw, 42vh);
       aspect-ratio: 734 / 1024;
       border: 3px solid var(--gold);
       border-radius: 18px;
@@ -306,9 +306,9 @@ function createOverlayHtml() {
     }
 
     .pull > div {
-      width: 100%;
+      width: 60%;
       position: relative;
-      padding: 12px 16px 14px;
+      padding: 12px 5px 14px;
       border: 2px solid rgba(244, 199, 107, 0.86);
       border-radius: 10px;
       background:
@@ -330,7 +330,7 @@ function createOverlayHtml() {
     .card-name {
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: clamp(18px, 2.8vw, 28px);
+      font-size: clamp(18px, 2.6vw, 26px);
       line-height: 0.95;
       font-weight: 900;
       color: var(--gold-bright);
